@@ -1,0 +1,15 @@
+{
+  "name": "core5k-tatoeba-sentences",
+  "version": "1.0.0",
+  "description": "",
+  "main": "generate_words.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "aldebrn",
+  "license": "public domain",
+  "dependencies":{
+    "lodash" : "latest"
+  }
+}
