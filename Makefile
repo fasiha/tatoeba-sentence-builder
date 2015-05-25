@@ -38,13 +38,13 @@ JMdict-headwords.json: data/JMdict_e
 
 # Convert JMdict's XML file into a sparse data file that only has needed data.
 
-wwwjdic.sentences wwwjdic.tags wwwjdic.good-tags: data/wwwjdic.csv
+wwwjdic-sentences.json wwwjdic-tags.json wwwjdic-good-tags.json: data/wwwjdic.csv
 	node parse_wwwjdic_examples.js
 
 # Do the same with the wwwjdic sentence example database. But convert
 # pretty much all the data.
 
-dummy: JMdict-headwords.json wwwjdic.sentences wwwjdic.tags wwwjdic.good-tags ordered-words.json
+dummy: JMdict-headwords.json wwwjdic.sentences wwwjdic-tags.json wwwjdic-good-tags.json ordered-words.json
 	node words_vs_headwords_jmdict.js
 
 # Given the previous two, and our list of words, find what dictionary

@@ -75,7 +75,7 @@ var sentences =
           return o;
         });
 
-util.writeJSON('wwwjdic.sentences', sentences);
-util.writeJSON('wwwjdic.tags', tags);
-util.writeJSON('wwwjdic.good-tags', goodTags);
+util.writeJSON('wwwjdic-sentences.json', sentences);
+util.writeJSON('wwwjdic-tags.json', tags);
+util.writeJSON('wwwjdic-good-tags.json', goodTags);
 

@@ -1,5 +1,4 @@
 "use strict";
-var fs = require('fs');
 var lo = require('lodash');
 var util = require('./utilities.js');
 

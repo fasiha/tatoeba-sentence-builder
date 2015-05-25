@@ -1,5 +1,4 @@
 "use strict";
-//var fs = require('fs');
 var lo = require('lodash');
 var util = require('./utilities.js');
 
@@ -11,6 +10,14 @@ function extractKanjiHeadwords(block) {
 function extractReadingHeadwords(block) {
   return block.match(/<reb>[\S\s]*?<\/reb>/g)
       .map(function(s) { return s.replace(/<[^>]*>/g, ''); });
+}
+
+function extractSenses(block) {
+  return block.match(/<sense>[\s\S]*?<\/sense>/g).map(function(sense) {
+    return sense.match(/<gloss>.*?<\/gloss>/g).map(function(s) {
+      return s.replace(/<.*?>/g, '');
+    }).join('；');
+  });
 }
 
 var entries = util.read('data/JMdict_e').trim().split('</entry>');
@@ -34,18 +41,25 @@ var headwords = entries.map(function(entry, number) {
     console.error("Can't find anything in entry number", number, entry);
   }
 
-  // Find # of senses
-  var senses = entry.match(/<sense>/g);
+  // Find senses: all entries in JMdict should have >= 1 senses
+  var senses = obj ? extractSenses(entry) : null;
   if (senses && senses.length > 0 && obj) {
     obj.numsenses = senses.length;
+    obj.senses = senses;
+  }
+
+  // Finally, append the number for easy cross-reference
+  if (obj) {
+    obj.num = number;
   }
 
   return obj;
 });
 
-
-if (headwords.length < 100) {
-  console.log(headwords);
-}
-util.writeJSON('JMdict-headwords.json', lo.compact(headwords));
+headwords = lo.compact(headwords);
+util.writeJSON('JMdict-headwords.json',
+               headwords.map(function(obj) { return lo.omit(obj, 'senses'); }));
+util.writeJSON('JMdict-senses.json', headwords.map(function(obj) {
+  return lo.omit(obj, 'headwords,type,numsenses'.split(','));
+}));
 
