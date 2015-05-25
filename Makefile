@@ -33,4 +33,20 @@ data/JMdict_e data/examples.utf data/wwwjdic.csv:
 # Use myougiden to get JMdict. Also get the Tatoeba example sentences in two
 # formats: one from Tatoeba and one from Jim Breen's website.
 
+JMdict-headwords.json: data/JMdict_e
+	node parse_jmdict.js
 
+# Convert JMdict's XML file into a sparse data file that only has needed data.
+
+wwwjdic.sentences wwwjdic.tags wwwjdic.good-tags: data/wwwjdic.csv
+	node parse_wwwjdic_examples.js
+
+# Do the same with the wwwjdic sentence example database. But convert
+# pretty much all the data.
+
+dummy: JMdict-headwords.json wwwjdic.sentences wwwjdic.tags wwwjdic.good-tags ordered-words.json
+	node words_vs_headwords_jmdict.js
+
+# Given the previous two, and our list of words, find what dictionary
+# headwords are relevant to us, and then what sentences are relevant to
+# each of those.
