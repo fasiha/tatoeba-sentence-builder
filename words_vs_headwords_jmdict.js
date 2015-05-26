@@ -21,8 +21,8 @@ var headless = lo.compact(words.map(function(list, num) {
 
 var headed = words.filter(function(list, num) { return bools[num]; });
 
-var tags = util.readJSON('wwwjdic.tags');
-var goodTags = util.readJSON('wwwjdic.good-tags');
+var tags = util.readJSON('wwwjdic-tags.json');
+var goodTags = util.readJSON('wwwjdic-good-tags.json');
 
 function wordlistsToNumSentences(arrOfWordlists, tagsObj) {
   return arrOfWordlists.map(function(list) {
