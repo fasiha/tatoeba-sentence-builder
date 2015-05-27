@@ -50,3 +50,6 @@ dummy: JMdict-headwords.json wwwjdic.sentences wwwjdic-tags.json wwwjdic-good-ta
 # Given the previous two, and our list of words, find what dictionary
 # headwords are relevant to us, and then what sentences are relevant to
 # each of those.
+
+core5k.json:
+	node routledge.js
