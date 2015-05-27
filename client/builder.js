@@ -9,8 +9,8 @@ var dataPaths = {
   headwords : dataPath + 'JMdict-headwords.json',
   senses : dataPath + 'JMdict-senses.json',
   //tags : dataPath + 'wwwjdic-tags.json',
-  //goodTags : dataPath + 'wwwjdic-good-tags.json',
-  //sentences : dataPath + 'wwwjdic-sentences.json',
+  goodTags : dataPath + 'wwwjdic-good-tags.json',
+  sentences : dataPath + 'wwwjdic-sentences.json',
 };
 
 var dataGlobal;
@@ -63,14 +63,42 @@ function renderData(data) {
           .classed('dict-entry', true)
           .text(d => '' + d.headwords.join('・'));
 
-  var senses = heads.append('ol')
-                   .selectAll('li.sense-entry')
-                   .data(d => data.senses[d.num].senses.map(
-                             sense => {return {sense : sense, num : d.num}}))
-                   .enter()
-                   .append('li')
-                   .classed('sense-entry', true)
-                   .text(d => d.sense);
+  var examplesNoSenseParent = heads.append('ul');
+  examplesNoSenseParent.append('li').text('No-sense examples:');
+  var examplesNoSense =
+      examplesNoSenseParent.append('ol')
+          .selectAll('li.example-nosense')
+          .data(headword => ((data.goodTags[headword.headwords[0]] || [])['null'] ||
+                             []).slice(0, 3))
+          .enter()
+          .append('li')
+          .classed('example-nosense', true)
+          .text(d => 'Example: ' + data.sentences[d].japanese + ' ' +
+                     data.sentences[d].english);
+
+  var senses =
+      heads.append('ol')
+          .selectAll('li.sense-entry')
+          .data(d => data.senses[d.num].senses.map(
+                    (sense, i) => {
+                        return {sense : sense, headwordNum : d.num, senseNum : i}}))
+          .enter()
+          .append('li')
+          .classed('sense-entry', true)
+          .text(d => d.sense);
+  var examplesWithSense =
+      senses.append('ol')
+          .selectAll('li.example-withsense')
+          .data(
+               sense =>
+                   ((data.goodTags[data.headwords[sense.headwordNum].headwords[0]] ||
+                     [])[sense.senseNum + 1] ||
+                    []).slice(0, 3))
+          .enter()
+          .append('li')
+          .classed('example-withsense', true)
+          .text(sentenceNum => 'Example: ' + data.sentences[sentenceNum].japanese +
+                               ' ' + data.sentences[sentenceNum].english);
 }
 
 // Lodash & underscore have a function `invert` which takes an object's keys and
