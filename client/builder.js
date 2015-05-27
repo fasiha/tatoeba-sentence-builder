@@ -38,17 +38,19 @@ function renderData(data) {
 
   var coreSubset = data.words.slice(0, 50);
   var words = d3.select('#core-words')
-                  .selectAll('div.core-word')
+                  .append('ol')
+                  .selectAll('li.core-word')
                   .data(coreSubset)
                   .enter()
-                  .append('div')
+                  .append('li')
                   .classed('core-word', true)
                   .text(function(d, i) {
     return d.join('；') + ' （' + data.book[i].split('\n')[0] + '）';
   });
 
   var heads =
-      words.selectAll('div.dict-entry')
+      words.append('ul')
+          .selectAll('li.dict-entry')
           .data(d =>
                     _.unique(_.compact(_.flatten(d.map(
                                  word => (headwordsHash[word] || []).concat(
@@ -57,17 +59,18 @@ function renderData(data) {
                                          : headwordsHash[word.replace('ー', '')])))))
                         .map(n => data.headwords[n]))
           .enter()
-          .append('div')
+          .append('li')
           .classed('dict-entry', true)
-          .text(d => '。' + d.headwords.join('・'));
+          .text(d => '' + d.headwords.join('・'));
 
   var senses = heads.append('ol')
                    .selectAll('li.sense-entry')
-                   .data(d => data.senses[d.num].senses)  // d is a headword object
+                   .data(d => data.senses[d.num].senses.map(
+                             sense => {return {sense : sense, num : d.num}}))
                    .enter()
                    .append('li')
                    .classed('sense-entry', true)
-                   .text(d => '' + d);
+                   .text(d => d.sense);
 }
 
 // Lodash & underscore have a function `invert` which takes an object's keys and
