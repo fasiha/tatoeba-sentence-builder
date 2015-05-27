@@ -33,8 +33,8 @@ function renderData(data) {
   console.log('Now I have data! And you can too: look in `dataGlobal`.');
   dataGlobal = data;
 
-  var headwordsHash = duplicateAwareObject(_.pluck(data.headwords, 'headwords'),
-                                           _.pluck(data.headwords, 'num'));
+  var headwordsHash = arrayAwareObject(_.pluck(data.headwords, 'headwords'),
+                                       _.pluck(data.headwords, 'num'), true);
 
   var coreSubset = data.words.slice(0, 50);
   var words = d3.select('#core-words')
@@ -61,8 +61,9 @@ function renderData(data) {
           .classed('dict-entry', true)
           .text(d => '。' + d.headwords.join('・'));
 
-  var senses = heads.append('ol').selectAll('li.sense-entry')
-                   .data(d => data.senses[d.num].senses)
+  var senses = heads.append('ol')
+                   .selectAll('li.sense-entry')
+                   .data(d => data.senses[d.num].senses)  // d is a headword object
                    .enter()
                    .append('li')
                    .classed('sense-entry', true)
@@ -79,7 +80,7 @@ function arrayAwareInvert(obj, multi) {
   }
   var res = {};
   for (var p in obj) {
-    var arr = obj[p], len = arr.length;
+    var arr = obj[p];
     for (var i in arr) {
       if (!multi) {
         res[arr[i]] = p;
@@ -91,19 +92,22 @@ function arrayAwareInvert(obj, multi) {
   return res;
 }
 
-// The lodash/underscore function `object` can take two arrays, representing
-// keys and values, and create an object from them. However, that library
-// function handles duplicate keys by selecting only one corresponding value.
-// Sometimes this is not what we desire: we want the returned object's values to
-// be arrays, and values corresponding to duplicate keys result in values whose
-// arrays are longer than one element.
-function duplicateAwareObject(arrOfKeys, vals) {
+function arrayAwareObject(arrOfKeys, vals, multi) {
   if (arrOfKeys.length !== vals.length) {
     throw "Keys and values arrays need to be same length";
   }
+  if (typeof multi === 'undefined') {
+    multi = false;
+  }
   var obj = {};
   arrOfKeys.forEach(function(keys, idx) {
-    keys.forEach(function(key) { (obj[key] || (obj[key] = [])).push(vals[idx]); });
+    keys.forEach(function(key) {
+      if (multi) {
+        (obj[key] || (obj[key] = [])).push(vals[idx]);
+      } else {
+        obj[key] = vals[idx];
+      }
+    });
   });
   return obj;
 }
