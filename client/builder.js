@@ -1,13 +1,6 @@
 "use strict";
 var d3, _, XRegExp;
-
 var jsonPromisified = Promise.promisify(d3.json);
-/*
-var xhrPromisified = Promise.promisify(d3.xhr);
-var xhrText = function(url) {
-  return xhrPromisified(url, 'text/plain')
-      .then(function(res) { return res.responseText; });
-};*/
 
 var dataPath = '/min-';
 var dataPaths = {
@@ -15,9 +8,9 @@ var dataPaths = {
   book : dataPath + 'core5k.json',
   headwords : dataPath + 'JMdict-headwords.json',
   senses : dataPath + 'JMdict-senses.json',
-  tags : dataPath + 'wwwjdic-tags.json',
-  goodTags : dataPath + 'wwwjdic-good-tags.json',
-  sentences : dataPath + 'wwwjdic-sentences.json'
+  //tags : dataPath + 'wwwjdic-tags.json',
+  //goodTags : dataPath + 'wwwjdic-good-tags.json',
+  //sentences : dataPath + 'wwwjdic-sentences.json',
 };
 
 var dataGlobal;
@@ -25,11 +18,19 @@ var dataGlobal;
 // we do _.keys(...).map() so that we can later build the `data` object with
 // _.keys(...). This is important since it's conceivable that _.map(...) and
 // _.keys(...) iterate differently.
+//
+// We also build the data object in its own function (`return _.object(...)`)
+// rather than combining the last two `then` functions, to conserve memory. If
+// we created and used `data` in one function, `results` would be floating
+// around, unless we overwrote it manually, which is ugly.
 Promise.all(_.keys(dataPaths)
                 .map(function(key) { return jsonPromisified(dataPaths[key]); }))
     .then(function(results) { return _.object(_.keys(dataPaths), results); })
-    .then(function(data) {
-  console.log('Now I have data!');
+    .then(renderData)
+    .catch (console.error.bind(console, 'Error in downloading data.'));
+
+function renderData(data) {
+  console.log('Now I have data! And you can too: look in `dataGlobal`.');
   dataGlobal = data;
 
   var headwordsHash = duplicateAwareObject(_.pluck(data.headwords, 'headwords'),
@@ -37,23 +38,36 @@ Promise.all(_.keys(dataPaths)
 
   var coreSubset = data.words.slice(0, 50);
   var words = d3.select('#core-words')
-      .selectAll('div.core-word')
-      .data(coreSubset)
-      .enter()
-      .append('div')
-      .classed('core-word', true)
-      .text(function(d) { return d.join('；'); });
+                  .selectAll('div.core-word')
+                  .data(coreSubset)
+                  .enter()
+                  .append('div')
+                  .classed('core-word', true)
+                  .text(function(d, i) {
+    return d.join('；') + ' （' + data.book[i].split('\n')[0] + '）';
+  });
 
   var heads =
       words.selectAll('div.dict-entry')
-          .data(d => d.filter(word => word in headwordsHash ||
-                                      word.replace('ー', '') in headwordsHash))
+          .data(d =>
+                    _.unique(_.compact(_.flatten(d.map(
+                                 word => (headwordsHash[word] || []).concat(
+                                     word.search('ー') < 0
+                                         ? []
+                                         : headwordsHash[word.replace('ー', '')])))))
+                        .map(n => data.headwords[n]))
           .enter()
           .append('div')
           .classed('dict-entry', true)
-          .text(d => '・' + d);
+          .text(d => '。' + d.headwords.join('・'));
 
-}).catch (console.error.bind(console, 'Error in downloading data.'));
+  var senses = heads.append('ol').selectAll('li.sense-entry')
+                   .data(d => data.senses[d.num].senses)
+                   .enter()
+                   .append('li')
+                   .classed('sense-entry', true)
+                   .text(d => '' + d);
+}
 
 // Lodash & underscore have a function `invert` which takes an object's keys and
 // values and swaps them. But this library function can't deal with values that
@@ -89,7 +103,7 @@ function duplicateAwareObject(arrOfKeys, vals) {
   }
   var obj = {};
   arrOfKeys.forEach(function(keys, idx) {
-    keys.forEach(function(key) { (obj[key] || (obj[key] = [])).push(vals[idx];) });
+    keys.forEach(function(key) { (obj[key] || (obj[key] = [])).push(vals[idx]); });
   });
   return obj;
 }
