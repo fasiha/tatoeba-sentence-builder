@@ -41,10 +41,17 @@ var headwords = entries.map(function(entry, number) {
     console.error("Can't find anything in entry number", number, entry);
   }
 
+  // For kanji-only headwords, which don't have any kana headwords, find
+  // readings. Note that "usually-kana" entries will have readings as headwords,
+  // so they aren't going to be here.
+  obj.readings = [];
+  if (obj.type === 'kanji') {
+    obj.readings = extractReadingHeadwords(entry);
+  }
+
   // Find senses: all entries in JMdict should have >= 1 senses
   var senses = obj ? extractSenses(entry) : null;
   if (senses && senses.length > 0 && obj) {
-    obj.numsenses = senses.length;
     obj.senses = senses;
   }
 
@@ -57,9 +64,13 @@ var headwords = entries.map(function(entry, number) {
 });
 
 headwords = lo.compact(headwords);
+// Everything
+util.writeJSON('JMdict-all.json', headwords);
+// Everything except senses
 util.writeJSON('JMdict-headwords.json',
                headwords.map(function(obj) { return lo.omit(obj, 'senses'); }));
+// Senses and numbers
 util.writeJSON('JMdict-senses.json', headwords.map(function(obj) {
-  return lo.omit(obj, 'headwords,type,numsenses'.split(','));
+  return lo.omit(obj, 'headwords,type'.split(','));
 }));
 

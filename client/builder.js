@@ -8,8 +8,8 @@ var dataPaths = {
   book : dataPath + 'core5k.json',
   headwords : dataPath + 'JMdict-headwords.json',
   senses : dataPath + 'JMdict-senses.json',
-  //tags : dataPath + 'wwwjdic-tags.json',
-  goodTags : dataPath + 'wwwjdic-good-tags.json',
+  tags : dataPath + 'wwwjdic-tags.json',
+  //goodTags : dataPath + 'wwwjdic-good-tags.json',
   sentences : dataPath + 'wwwjdic-sentences.json',
 };
 
@@ -63,17 +63,20 @@ function renderData(data) {
           .classed('dict-entry', true)
           .text(d => '' + d.headwords.join('・'));
 
+  function headwordObjSenseToExamples(obj, sense) {
+    return _.uniq(((data.tags[obj.headwords[0]] || [])[sense] || [])).slice(0, 3);
+  }
+  
   var examplesNoSenseParent = heads.append('ul');
   examplesNoSenseParent.append('li').text('No-sense examples:');
   var examplesNoSense =
       examplesNoSenseParent.append('ol')
           .selectAll('li.example-nosense')
-          .data(headword => ((data.goodTags[headword.headwords[0]] || [])['null'] ||
-                             []).slice(0, 3))
+          .data(headword => headwordObjSenseToExamples(headword, null))
           .enter()
           .append('li')
           .classed('example-nosense', true)
-          .text(d => 'Example: ' + data.sentences[d].japanese + ' ' +
+          .text(d => 'No-sense example: ' + data.sentences[d].japanese + ' ' +
                      data.sentences[d].english);
 
   var senses =
@@ -86,14 +89,12 @@ function renderData(data) {
           .append('li')
           .classed('sense-entry', true)
           .text(d => d.sense);
+
   var examplesWithSense =
       senses.append('ol')
           .selectAll('li.example-withsense')
-          .data(
-               sense =>
-                   ((data.goodTags[data.headwords[sense.headwordNum].headwords[0]] ||
-                     [])[sense.senseNum + 1] ||
-                    []).slice(0, 3))
+          .data(sense => headwordObjSenseToExamples(
+                    data.headwords[sense.headwordNum], sense.senseNum + 1))
           .enter()
           .append('li')
           .classed('example-withsense', true)
