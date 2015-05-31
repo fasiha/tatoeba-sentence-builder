@@ -3,4 +3,5 @@ node_modules/
 *.swp
 *.bak
 data/
+config.js
 

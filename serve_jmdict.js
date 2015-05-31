@@ -5,7 +5,7 @@ var debug = require('debug')('serve_jmdict');
 
 module.exports = {};
 
-var obj = util.readJSON('JMdict-all.json');
+var obj = util.readJSON('min-JMdict-all.json');
 var keyToHash = function(key) {
   return util.arrayAwareObject(_.pluck(obj, key), _.pluck(obj, 'num'), true);
 };
