@@ -1,15 +1,27 @@
 {
   "name": "core5k-tatoeba-sentences",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "",
-  "main": "generate_words.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "aldebrn",
   "license": "public domain",
-  "dependencies":{
-    "lodash" : "latest"
+  "dependencies": {
+    "bluebird": "^2.9.27",
+    "body-parser": "latest",
+    "cookie-parser": "latest",
+    "debug": "latest",
+    "ejs": "latest",
+    "emailjs": "latest",
+    "express": "latest",
+    "express-session": "latest",
+    "lodash": "latest",
+    "morgan": "latest",
+    "passwordless": "latest",
+    "passwordless-memorystore": "latest",
+    "serve-favicon": "latest"
   }
 }

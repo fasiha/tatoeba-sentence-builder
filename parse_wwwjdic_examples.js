@@ -1,5 +1,5 @@
 "use strict";
-var util = require('./utilities.js');
+var util = require('./nodeUtilities.js');
 
 var tags = {};
 var goodTags = {};

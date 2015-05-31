@@ -1,6 +1,6 @@
 "use strict";
 var lo = require('lodash');
-var util = require('./utilities.js');
+var util = require('./nodeUtilities.js');
 
 // words-only.txt has 5000 lines, each of which contains a full-width-comma separated
 // list of words, as well as some words with optional suffixes (e.g.,

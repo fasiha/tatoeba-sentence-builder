@@ -1,6 +1,6 @@
 "use strict";
 var lo = require('lodash');
-var util = require('./utilities.js');
+var util = require('./nodeUtilities.js');
 
 var allHeadwords = util.readJSON('JMdict-headwords.json');
 var headwordsHash = lo.object(lo.flatten(lo.pluck(allHeadwords, 'headwords')));

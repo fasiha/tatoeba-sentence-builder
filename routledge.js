@@ -1,5 +1,5 @@
 "use strict";
-var utils = require('./utilities.js');
+var utils = require('./nodeUtilities.js');
 
 var core = utils.read('routledge_data.md').trim().replace(/\r/g, '').split('\n\n');
 if (core.length !== 5000) {

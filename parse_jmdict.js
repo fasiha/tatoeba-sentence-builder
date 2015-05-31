@@ -1,6 +1,6 @@
 "use strict";
 var lo = require('lodash');
-var util = require('./utilities.js');
+var util = require('./nodeUtilities.js');
 
 function extractKanjiHeadwords(block) {
   return block.match(/<keb>[\S\s]*?<\/keb>/g)
@@ -44,9 +44,11 @@ var headwords = entries.map(function(entry, number) {
   // For kanji-only headwords, which don't have any kana headwords, find
   // readings. Note that "usually-kana" entries will have readings as headwords,
   // so they aren't going to be here.
-  obj.readings = [];
-  if (obj.type === 'kanji') {
-    obj.readings = extractReadingHeadwords(entry);
+  if (obj) {
+    obj.readings = [];
+    if (obj.type === 'kanji') {
+      obj.readings = extractReadingHeadwords(entry);
+    }
   }
 
   // Find senses: all entries in JMdict should have >= 1 senses
