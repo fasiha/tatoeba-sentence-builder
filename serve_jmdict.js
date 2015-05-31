@@ -1,5 +1,5 @@
 "use strict";
-var lo = require('lodash');
+var _ = require('lodash');
 var util = require('./nodeUtilities.js');
 var debug = require('debug')('serve_jmdict');
 
@@ -7,13 +7,13 @@ module.exports = {};
 
 var obj = util.readJSON('JMdict-all.json');
 var keyToHash = function(key) {
-  return util.arrayAwareObject(lo.pluck(obj, key), lo.pluck(obj, 'num'), true);
+  return util.arrayAwareObject(_.pluck(obj, key), _.pluck(obj, 'num'), true);
 };
 var headwordsHash = keyToHash('headwords');
 var readingsHash = keyToHash('readings');
 
 var wordsToEntries = function(words, hash) {
-  return lo.unique(lo.compact(lo.flatten(words.map(function(word) {
+  return _.unique(_.compact(_.flatten(words.map(function(word) {
              return (hash[word] || [])
                  .concat(word.search('ー') < 0 ? []
                                                : hash[word.replace('ー', '')])
