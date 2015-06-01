@@ -2,14 +2,14 @@
 var d3, _, XRegExp;
 var jsonPromisified = Promise.promisify(d3.json);
 
-var dataPath = '/min-';
+var dataPath = '/data-static/min-';
 var dataPaths = {
   words : dataPath + 'ordered-words.json',
   book : dataPath + 'core5k.json',
   headwords : dataPath + 'JMdict-headwords.json',
   senses : dataPath + 'JMdict-senses.json',
   tags : dataPath + 'wwwjdic-tags.json',
-  //goodTags : dataPath + 'wwwjdic-good-tags.json',
+  // goodTags : dataPath + 'wwwjdic-good-tags.json',
   sentences : dataPath + 'wwwjdic-sentences.json',
 };
 
@@ -27,7 +27,7 @@ Promise.all(_.keys(dataPaths)
                 .map(function(key) { return jsonPromisified(dataPaths[key]); }))
     .then(function(results) { return _.object(_.keys(dataPaths), results); })
     .then(renderData)
-    .catch (console.error.bind(console, 'Error in downloading data.'));
+    .catch(console.error.bind(console, 'Error in downloading data.'));
 
 function renderData(data) {
   console.log('Now I have data! And you can too: look in `dataGlobal`.');
@@ -37,36 +37,53 @@ function renderData(data) {
                                        _.pluck(data.headwords, 'num'), true);
 
   var coreSubset = data.words.slice(0, 50);
-  var words = d3.select('#core-words')
-                  .append('ol')
-                  .selectAll('li.core-word')
-                  .data(coreSubset)
-                  .enter()
-                  .append('li')
-                  .classed('core-word', true)
-                  .text(function(d, i) {
-    return d.join('；') + ' （' + data.book[i].split('\n')[0] + '）';
-  });
-
-  var heads =
-      words.append('ul')
-          .selectAll('li.dict-entry')
-          .data(d =>
-                    _.unique(_.compact(_.flatten(d.map(
-                                 word => (headwordsHash[word] || []).concat(
-                                     word.search('ー') < 0
-                                         ? []
-                                         : headwordsHash[word.replace('ー', '')])))))
-                        .map(n => data.headwords[n]))
+  var words =
+      d3.select('#core-words')
+          .append('ol')
+          .selectAll('li.core-word')
+          .data(coreSubset)
           .enter()
           .append('li')
-          .classed('dict-entry', true)
-          .text(d => '' + d.headwords.join('・'));
+          .classed('core-word', true)
+          .text(function(d, i) {
+            return d.join('；') + ' （' + data.book[i].split('\n')[0] + '）';
+          });
+  ;
+  Promise.all(coreSubset.map(
+                  tuple => jsonPromisified('/headwords/' + tuple.join(','))))
+      .then(allResults => {
+        var heads = words.append('ul')
+                        .selectAll('li.dict-entry')
+                        .data((d, i) => allResults[i])
+                        .enter()
+                        .append('li')
+                        .classed('dict-entry', true)
+                        .text(d => '' + d.headwords.join('・'));
+ 
+        var senses = heads.append('ol')
+                         .selectAll('li.sense-entry')
+                         .data(d => d.senses.map(
+                                   (sense, i) =>
+                                       {
+                                         return {
+                                           sense : sense,
+                                           headwordNum : d.num,
+                                           senseNum : i
+                                         }
+                                       }))
+                         .enter()
+                         .append('li')
+                         .classed('sense-entry', true)
+                         .text(d => d.sense);
 
+      });
+
+  /*
   function headwordObjSenseToExamples(obj, sense) {
-    return _.uniq(((data.tags[obj.headwords[0]] || [])[sense] || [])).slice(0, 3);
+    return _.uniq(((data.tags[obj.headwords[0]] || [])[sense] || []))
+        .slice(0, 3);
   }
-  
+
   var examplesNoSenseParent = heads.append('ul');
   examplesNoSenseParent.append('li').text('No-sense examples:');
   var examplesNoSense =
@@ -79,17 +96,6 @@ function renderData(data) {
           .text(d => 'No-sense example: ' + data.sentences[d].japanese + ' ' +
                      data.sentences[d].english);
 
-  var senses =
-      heads.append('ol')
-          .selectAll('li.sense-entry')
-          .data(d => data.senses[d.num].senses.map(
-                    (sense, i) => {
-                        return {sense : sense, headwordNum : d.num, senseNum : i}}))
-          .enter()
-          .append('li')
-          .classed('sense-entry', true)
-          .text(d => d.sense);
-
   var examplesWithSense =
       senses.append('ol')
           .selectAll('li.example-withsense')
@@ -98,8 +104,10 @@ function renderData(data) {
           .enter()
           .append('li')
           .classed('example-withsense', true)
-          .text(sentenceNum => 'Example: ' + data.sentences[sentenceNum].japanese +
-                               ' ' + data.sentences[sentenceNum].english);
+          .text(sentenceNum => 'Example: ' +
+                               data.sentences[sentenceNum].japanese + ' ' +
+                               data.sentences[sentenceNum].english);
+                               */
 }
 
 // Lodash & underscore have a function `invert` which takes an object's keys and

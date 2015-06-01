@@ -31,10 +31,14 @@ router.post('/sendtoken',
             }),
             function(req, res) { res.render('sent'); });
 
-router.get('/dict/:words', function(req, res) {
+router.get('/headwords/:words', function(req, res) {
   debug('Lookup params:',req.params);
   var words = req.params.words.split(',');
   res.json(jmdict.lookupHeadword(words));
+});
+
+router.get('/readings/:words', function(req, res) {
+  res.json(jmdict.lookupHeadword(req.params.words.split(',')));
 });
 
 module.exports = router;

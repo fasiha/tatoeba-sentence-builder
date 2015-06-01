@@ -1,13 +1,20 @@
 "use strict";
 var _ = require('lodash');
-var util = require('./nodeUtilities.js');
+var utils = require('./nodeUtilities.js');
 var debug = require('debug')('serve_jmdict');
 
 module.exports = {};
 
-var obj = util.readJSON('min-JMdict-all.json');
+// Creates ~1 GB of ephemeral garbage :(
+// var obj = utils.readJSON('min-JMdict-all.json');
+// So split the string into pieces and parse the elements individually.
+var obj = utils.read("JMdict-all.json")
+              .trim()
+              .slice(1, -1 - 2)
+              .split('\n },')
+              .map(function(s) { return JSON.parse(s + '}') });
 var keyToHash = function(key) {
-  return util.arrayAwareObject(_.pluck(obj, key), _.pluck(obj, 'num'), true);
+  return utils.arrayAwareObject(_.pluck(obj, key), _.pluck(obj, 'num'), true);
 };
 var headwordsHash = keyToHash('headwords');
 var readingsHash = keyToHash('readings');
@@ -34,3 +41,4 @@ module.exports.wordsToEntries = wordsToEntries;
 module.exports.allEntries = obj;
 module.exports.headwordsHash = headwordsHash;
 module.exports.readingsHash = readingsHash;
+

@@ -43,7 +43,7 @@ app.use(expressSession({
   saveUninitialized : false
 }));
 app.use(express.static(path.join(__dirname, 'public')));
-
+app.use('/data-static', express.static(path.join(__dirname, 'data-static')));
 // Passwordless middleware
 app.use(passwordless.sessionSupport());
 app.use(passwordless.acceptToken({successRedirect : '/'}));
