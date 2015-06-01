@@ -79,3 +79,7 @@ util.writeJSON('wwwjdic-sentences.json', sentences);
 util.writeJSON('wwwjdic-tags.json', tags);
 util.writeJSON('wwwjdic-good-tags.json', goodTags);
 
+util.writeLineDelimitedJSON('data-static/wwwjdic-sentences.ldjson', sentences);
+util.writeLineDelimitedJSON('data-static/wwwjdic-tags.ldjson', tags);
+util.writeLineDelimitedJSON('data-static/wwwjdic-good-tags.ldjson', goodTags);
+

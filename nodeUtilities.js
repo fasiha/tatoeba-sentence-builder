@@ -1,5 +1,6 @@
 "use strict";
 var fs = require('fs');
+var _ = require('lodash');
 
 module.exports = {
   read : function(file) { return fs.readFileSync(file, {encoding : 'utf8'}); },
@@ -12,10 +13,40 @@ module.exports = {
     }
     fs.writeFileSync(file, JSON.stringify(obj, null, 1));
   },
-  // Lodash & underscore have a function `invert` which takes an object's keys and
-  // values and swaps them. But this library function can't deal with values that
-  // are arrays. Sometimes we want `invert` to produce an output object whose keys
-  // are scalars inside those arrays (which were values in the input object).
+
+  writeLineDelimitedJSON : function(file, obj) {
+    if (typeof file !== 'string') {
+      throw new Error('file name must be string');
+    }
+    if (_.isArray(obj)) {
+      fs.writeFileSync(file, obj.map(JSON.stringify).join('\n'));
+    } else if (_.isObject(obj)) {
+      // Convert the object into an array of key-val pairs and a pair per line
+      this.writeLineDelimitedJSON(file, _.map(obj, function(val, key) {
+        return {key : key, val : val};
+      }));
+    } else {
+      console.warn('Input not array or object. Writing plain JSON.');
+      this.writeJSON(file + '.json', obj);
+    }
+  },
+
+  readLineDelimitedJSON : function(file, wantHash) {
+    if (typeof wantHash === 'undefined') {
+      wantHash = false;
+    }
+    var arr = this.read(file).trim().split('\n').map(JSON.parse);
+    if (!wantHash) {
+      return arr;
+    }
+    return _.object(_.pluck(arr, 'key'), _.pluck(arr, 'val'));
+  },
+
+  // Lodash & underscore have a function `invert` which takes an object's keys
+  // and values and swaps them. But this library function can't deal with values
+  // that are arrays. Sometimes we want `invert` to produce an output object
+  // whose keys are scalars inside those arrays (which were values in the input
+  // object).
   arrayAwareInvert : function(obj, multi) {
     if (typeof multi === 'undefined') {
       multi = false;

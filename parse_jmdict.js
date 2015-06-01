@@ -68,6 +68,8 @@ var headwords = entries.map(function(entry, number) {
 headwords = lo.compact(headwords);
 // Everything
 util.writeJSON('JMdict-all.json', headwords);
+util.writeLineDelimitedJSON('data-static/JMdict-all.ldjson', headwords);
+
 // Everything except senses
 util.writeJSON('JMdict-headwords.json',
                headwords.map(function(obj) { return lo.omit(obj, 'senses'); }));

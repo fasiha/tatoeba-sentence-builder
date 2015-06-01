@@ -5,14 +5,7 @@ var debug = require('debug')('serve_jmdict');
 
 module.exports = {};
 
-// Creates ~1 GB of ephemeral garbage :(
-// var obj = utils.readJSON('min-JMdict-all.json');
-// So split the string into pieces and parse the elements individually.
-var obj = utils.read("JMdict-all.json")
-              .trim()
-              .slice(1, -1 - 2)
-              .split('\n },')
-              .map(function(s) { return JSON.parse(s + '}') });
+var obj = utils.readLineDelimitedJSON("data-static/JMdict-all.ldjson");
 var keyToHash = function(key) {
   return utils.arrayAwareObject(_.pluck(obj, key), _.pluck(obj, 'num'), true);
 };
