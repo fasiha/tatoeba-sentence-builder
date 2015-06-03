@@ -75,6 +75,17 @@ var sentences =
           return o;
         });
 
+// Strip duplicates
+
+_.keys(tags).forEach(function(headword) {
+  _.keys(tags[headword])
+      .forEach(function(sense) {
+        tags[headword][sense] = _.uniq(tags[headword][sense]);
+        // FIXME can we use _.uniq(..., isSorted=true)?
+      });
+});
+
+// Write
 util.writeJSON('wwwjdic-sentences.json', sentences);
 util.writeJSON('wwwjdic-tags.json', tags);
 util.writeJSON('wwwjdic-good-tags.json', goodTags);
