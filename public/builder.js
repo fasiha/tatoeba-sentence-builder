@@ -31,10 +31,7 @@ Promise.all(_.keys(dataPaths)
 function renderData(data) {
   console.log('Now I have data! And you can too: look in `dataGlobal`.');
   dataGlobal = data;
-
-  var headwordsHash = arrayAwareObject(_.pluck(data.headwords, 'headwords'),
-                                       _.pluck(data.headwords, 'num'), true);
-
+  
   var coreSubset = data.words.slice(0, 50);
   var words =
       d3.select('#core-words')
@@ -52,6 +49,7 @@ function renderData(data) {
                   tuple => jsonPromisified('/headwords/' + tuple.join(','))))
       .then(allResults => {
         var heads = words.append('ul')
+                        .classed('dict-entries-list', true)
                         .selectAll('li.dict-entry')
                         .data((tuple, tupleIdx) => allResults[tupleIdx])
                         .enter()
@@ -59,112 +57,61 @@ function renderData(data) {
                         .classed('dict-entry', true)
                         .text(d => '' + d.headwords.join('・'));
 
-        var senses = heads.append('ol')
-                         .selectAll('li.sense-entry')
-                         .data(headword => headword.senses.map(
-                                   (sense, i) =>
-                                       {
-                                         return {
-                                           sense : sense,
-                                           headword : headword,
-                                           senseNum : i
-                                         }
-                                       }))
-                         .enter()
-                         .append('li')
-                         .classed('sense-entry', true)
-                         .text(d => d.sense);
+        var noSenseExamplesPromises = [];
+        heads.each(entry => noSenseExamplesPromises.push(jsonPromisified(
+                       '/sentences/' + entry.headwords[0] + '/null')));
 
-        var examplesPromises = [];
-        senses.each(senseObj => examplesPromises.push(jsonPromisified(
-                        '/sentences/' + senseObj.headword.headwords[0] + '/' +
-                        (senseObj.senseNum + 1))));
-        Promise.all(examplesPromises)
-            .then(allSensesExamples => {
-              var senseExamples =
-                  senses.append('ol')
-                      .selectAll('li.example-withsense')
-                      .data((_, allIdx) => allSensesExamples[allIdx])
+        Promise.all(noSenseExamplesPromises)
+            .then(allNoSenseExamples => {
+              // General examples (not tied to any sense)
+              var parents =
+                  heads.append('ul').append('li').text('General sentences');
+              var noSenseExamples =
+                  parents.append('ul')
+                      .selectAll('li.example-nosense')
+                      .data((_, allIdx) => allNoSenseExamples[allIdx])
                       .enter()
                       .append('li')
-                      .classed('example-withsense', true)
+                      .classed('example-nosense', true)
                       .text(sentence =>
                                 sentence.japanese + ' ' + sentence.english);
 
+              // Dictionary senses
+              var senses = heads.append('ol')
+                               .classed('senses-list', true)
+                               .selectAll('li.sense-entry')
+                               .data(headword => headword.senses.map(
+                                         (sense, i) =>
+                                             {
+                                               return {
+                                                 sense : sense,
+                                                 headword : headword,
+                                                 senseNum : i
+                                               }
+                                             }))
+                               .enter()
+                               .append('li')
+                               .classed('sense-entry', true)
+                               .text(d => d.sense);
+
+              // Examples illustrating specific senses
+              var examplesPromises = [];
+              senses.each(senseObj => examplesPromises.push(jsonPromisified(
+                              '/sentences/' + senseObj.headword.headwords[0] +
+                              '/' + (senseObj.senseNum + 1))));
+
+              Promise.all(examplesPromises)
+                  .then(allSensesExamples => {
+                    var senseExamples =
+                        senses.append('ul')
+                            .selectAll('li.example-withsense')
+                            .data((_, allIdx) => allSensesExamples[allIdx])
+                            .enter()
+                            .append('li')
+                            .classed('example-withsense', true)
+                            .text(sentence => sentence.japanese + ' ' +
+                                              sentence.english);
+                  });
             });
-
       });
-
-  /*
-  function headwordObjSenseToExamples(obj, sense) {
-    return _.uniq(((data.tags[obj.headwords[0]] || [])[sense] || []))
-        .slice(0, 3);
-  }
-
-  var examplesNoSenseParent = heads.append('ul');
-  examplesNoSenseParent.append('li').text('No-sense examples:');
-  var examplesNoSense =
-      examplesNoSenseParent.append('ol')
-          .selectAll('li.example-nosense')
-          .data(headword => headwordObjSenseToExamples(headword, null))
-          .enter()
-          .append('li')
-          .classed('example-nosense', true)
-          .text(d => 'No-sense example: ' + data.sentences[d].japanese + ' ' +
-                     data.sentences[d].english);
-
-  var examplesWithSense =
-      senses.append('ol')
-          .selectAll('li.example-withsense')
-          .data(sense => headwordObjSenseToExamples(
-                    data.headwords[sense.headwordNum], sense.senseNum + 1))
-          .enter()
-          .append('li')
-          .classed('example-withsense', true)
-          .text(sentenceNum => 'Example: ' +
-                               data.sentences[sentenceNum].japanese + ' ' +
-                               data.sentences[sentenceNum].english);
-                               */
-}
-
-// Lodash & underscore have a function `invert` which takes an object's keys and
-// values and swaps them. But this library function can't deal with values that
-// are arrays. Sometimes we want `invert` to produce an output object whose keys
-// are scalars inside those arrays (which were values in the input object).
-function arrayAwareInvert(obj, multi) {
-  if (typeof multi === 'undefined') {
-    multi = false;
-  }
-  var res = {};
-  for (var p in obj) {
-    var arr = obj[p];
-    for (var i in arr) {
-      if (!multi) {
-        res[arr[i]] = p;
-      } else {
-        (res[arr[i]] || (res[arr[i]] = [])).push(p);
-      }
-    }
-  }
-  return res;
-}
-
-function arrayAwareObject(arrOfKeys, vals, multi) {
-  if (arrOfKeys.length !== vals.length) {
-    throw "Keys and values arrays need to be same length";
-  }
-  if (typeof multi === 'undefined') {
-    multi = false;
-  }
-  var obj = {};
-  arrOfKeys.forEach(function(keys, idx) {
-    keys.forEach(function(key) {
-      if (multi) {
-        (obj[key] || (obj[key] = [])).push(vals[idx]);
-      } else {
-        obj[key] = vals[idx];
-      }
-    });
-  });
-  return obj;
 }

@@ -10,7 +10,41 @@
 }
 .flexible {
     flex-grow: 1;
-}    
+}
+
+#core-words > ol {
+    counter-reset: word;
+    list-style-type: none;
+}
+li.core-word::before {
+    counter-increment: word;
+    content: "Word " counter(word) ") ";
+    margin-left: -1em;
+    font-weight: bold;
+}
+
+ul.dict-entries-list {
+    counter-reset: section;
+    list-style-type: none;
+
+}
+li.dict-entry::before {
+    counter-increment: section;
+    content: "Entry " counter(word) "." counter(section) ") ";
+    margin-left: -1em;
+    font-weight: bold;
+}
+
+ol.senses-list {
+    counter-reset: sense;  
+    list-style-type: none;
+}
+li.sense-entry::before {
+    counter-increment: sense;
+    content: "Sense " counter(word) "." counter(section) "." counter(sense) ") ";
+    margin-left: -1em;
+    font-weight: bold;
+}
 
     </style>
     <script src="d3.v3.min.js" charset="utf-8"></script>
