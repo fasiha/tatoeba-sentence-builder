@@ -6,15 +6,14 @@ var dataPath = '/data-static/min-';
 var dataPaths = {
   words : dataPath + 'ordered-words.json',
   book : dataPath + 'core5k.json',
-  headwords : dataPath + 'JMdict-headwords.json',
-  senses : dataPath + 'JMdict-senses.json',
-  tags : dataPath + 'wwwjdic-tags.json',
+  // headwords : dataPath + 'JMdict-headwords.json',
+  // senses : dataPath + 'JMdict-senses.json',
+  // tags : dataPath + 'wwwjdic-tags.json',
   // goodTags : dataPath + 'wwwjdic-good-tags.json',
-  sentences : dataPath + 'wwwjdic-sentences.json',
+  // sentences : dataPath + 'wwwjdic-sentences.json',
 };
 
 var dataGlobal;
-
 // we do _.keys(...).map() so that we can later build the `data` object with
 // _.keys(...). This is important since it's conceivable that _.map(...) and
 // _.keys(...) iterate differently.
@@ -48,26 +47,26 @@ function renderData(data) {
           .text(function(d, i) {
             return d.join('；') + ' （' + data.book[i].split('\n')[0] + '）';
           });
-  ;
+
   Promise.all(coreSubset.map(
                   tuple => jsonPromisified('/headwords/' + tuple.join(','))))
       .then(allResults => {
         var heads = words.append('ul')
                         .selectAll('li.dict-entry')
-                        .data((d, i) => allResults[i])
+                        .data((tuple, tupleIdx) => allResults[tupleIdx])
                         .enter()
                         .append('li')
                         .classed('dict-entry', true)
                         .text(d => '' + d.headwords.join('・'));
- 
+
         var senses = heads.append('ol')
                          .selectAll('li.sense-entry')
-                         .data(d => d.senses.map(
+                         .data(headword => headword.senses.map(
                                    (sense, i) =>
                                        {
                                          return {
                                            sense : sense,
-                                           headwordNum : d.num,
+                                           headword : headword,
                                            senseNum : i
                                          }
                                        }))
@@ -75,6 +74,24 @@ function renderData(data) {
                          .append('li')
                          .classed('sense-entry', true)
                          .text(d => d.sense);
+
+        var examplesPromises = [];
+        senses.each(senseObj => examplesPromises.push(jsonPromisified(
+                        '/sentences/' + senseObj.headword.headwords[0] + '/' +
+                        (senseObj.senseNum + 1))));
+        Promise.all(examplesPromises)
+            .then(allSensesExamples => {
+              var senseExamples =
+                  senses.append('ol')
+                      .selectAll('li.example-withsense')
+                      .data((_, allIdx) => allSensesExamples[allIdx])
+                      .enter()
+                      .append('li')
+                      .classed('example-withsense', true)
+                      .text(sentence =>
+                                sentence.japanese + ' ' + sentence.english);
+
+            });
 
       });
 

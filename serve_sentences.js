@@ -24,9 +24,9 @@ var sentences =
     utils.readLineDelimitedJSON('data-static/wwwjdic-sentences.ldjson');
 
 function headwordSenseToSentences(headword, sense) {
-  return tags[headword][sense].map(function(sentenceIdx) {
-    return sentences[sentenceIdx];
-  });
+  return ((tags[headword] || {})[sense] || [])
+      .slice(0, 5)
+      .map(function(sentenceIdx) { return sentences[sentenceIdx]; });
 }
 
 module.exports = {

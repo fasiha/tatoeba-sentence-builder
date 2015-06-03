@@ -1,5 +1,6 @@
 "use strict";
 var util = require('./nodeUtilities.js');
+var _ = require('lodash');
 
 var tags = {};
 var goodTags = {};
@@ -76,7 +77,6 @@ var sentences =
         });
 
 // Strip duplicates
-
 _.keys(tags).forEach(function(headword) {
   _.keys(tags[headword])
       .forEach(function(sense) {
