@@ -65,8 +65,9 @@ var headwords = entries.map(function(entry, number) {
   return obj;
 });
 
-headwords = lo.compact(headwords);
-// Everything
+headwords = lo.compact(headwords);  // Only needed for the last empty entry
+
+// Write everything
 util.writeJSON('JMdict-all.json', headwords);
 util.writeLineDelimitedJSON('data-static/JMdict-all.ldjson', headwords);
 
@@ -77,4 +78,35 @@ util.writeJSON('JMdict-headwords.json',
 util.writeJSON('JMdict-senses.json', headwords.map(function(obj) {
   return lo.omit(obj, 'headwords,type'.split(','));
 }));
+
+// To RethinkDB!
+var r = require('rethinkdb');
+var config = require('./config');
+
+var connection = null;
+r.connect({host : config.dbHost, port : config.dbPort})
+    .then(function(c) {
+      connection = c;
+      console.log("Connected.");
+      console.log("Deleting all headwords.");
+      return r.db(config.dbName)
+          .table(config.headwordsTable)
+          .delete()
+          .run(connection);
+    })
+    .then(function() {
+      console.log("Adding all headwords.");
+      if (true) {
+        console.log("Run\n$ rethinkdb import -f JMdict-all.json --table " +
+                    config.dbName + ".headwords --pkey num --force");
+        return 1;
+      }
+      // This is disabled because node complains out of stack space :( FIXME?
+      return r.db(config.dbName)
+          .table(config.headwordsTable)
+          .insert(headwords)
+          .run(connection);
+    })
+    .then(function() { return connection.close() })
+    .catch(console.error.bind(console, 'Error thrown!'));
 

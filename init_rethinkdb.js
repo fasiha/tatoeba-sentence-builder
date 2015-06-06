@@ -1,18 +1,11 @@
 "use strict";
 var r = require('rethinkdb');
-var _ = require('lodash');
 var Promise = require("bluebird");
-
-var DB_NAME = "unlocked";
-// DB_NAME = "test";
-
-var WORDS_TABLE = "corewords";
-var DICT_TABLE = "headwords";
-var EXAMPLES_TABLE = "examplesentences";
-var SENTENCES_DECK_TABLE = "decksentences";
+var config = require('./config');
 
 var connection = null;
-r.connect({host : 'localhost', port : 28015})
+
+r.connect({host : config.dbHost, port : config.dbPort})
 
     .then(function(c) {
       console.log("Connected.");
@@ -21,35 +14,43 @@ r.connect({host : 'localhost', port : 28015})
     })
 
     .then(function(dbs) {
-      if (dbs.indexOf(DB_NAME) < 0) {
+      if (dbs.indexOf(config.dbName) < 0) {
         console.log("Creating database.");
-        return r.dbCreate(DB_NAME).run(connection);
+        return r.dbCreate(config.dbName).run(connection);
       }
       console.log("Database exists, skipping creation.");
       return 1;  // return object doesn't matter
     })
 
-    .then(function() { return r.db(DB_NAME).tableList().run(connection); })
+    .then(function() {
+      return r.db(config.dbName).tableList().run(connection);
+    })
 
     .then(function(tables) {
-      return Promise.all(
-          [ WORDS_TABLE, DICT_TABLE, EXAMPLES_TABLE, SENTENCES_DECK_TABLE ].map(
-              function(name) {
-                if (tables.indexOf(name) < 0) {
-                  console.log("Creating " + name + ' table.');
-                  return r.db(DB_NAME).tableCreate(name).run(connection);
-                }
-                console.log("Table " + name + " already exists.");
-                return 1;
-              }));
+      return Promise.all([
+        config.corewordsTable,
+        config.headwordsTable,
+        config.examplesTable,
+        config.deckTable
+      ].map(function(name) {
+        if (tables.indexOf(name) < 0) {
+          console.log("Creating " + name + ' table.');
+          return r.db(config.dbName)
+              .tableCreate(
+                  name, {primaryKey : config.tablesToPrimaryKey[name] || "id"})
+              .run(connection);
+        }
+        console.log("Table " + name + " already exists.");
+        return 1;
+      }));
     })
+
+    .then(function() { return connection.close() })
 
     .then(function() {
       console.log("All down for now!");
-      return undefined;
+      return 1;
     })
 
     .catch(console.error.bind(console, 'Error thrown!'));
 
-// FIXME Doesn't seem to be reached, even though everything is done.
-console.log('Quitting.');
