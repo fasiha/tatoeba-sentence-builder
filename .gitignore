@@ -3,5 +3,7 @@ node_modules/
 *.swp
 *.bak
 data/
+data-static/
 config.js
+rethinkdb_data/
 

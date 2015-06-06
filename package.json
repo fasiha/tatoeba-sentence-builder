@@ -22,6 +22,8 @@
     "morgan": "latest",
     "passwordless": "latest",
     "passwordless-memorystore": "latest",
-    "serve-favicon": "latest"
+    "serve-favicon": "latest",
+    "rethinkdb" : "latest",
+    "bluebird" : "latest"
   }
 }
