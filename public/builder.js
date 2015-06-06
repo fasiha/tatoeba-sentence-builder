@@ -32,7 +32,7 @@ function renderData(data) {
   console.log('Now I have data! And you can too: look in `dataGlobal`.');
   dataGlobal = data;
   
-  var coreSubset = data.words.slice(0, 50);
+  var coreSubset = data.words.slice(0, 250);
   var words =
       d3.select('#core-words')
           .append('ol')
@@ -48,14 +48,15 @@ function renderData(data) {
   Promise.all(coreSubset.map(
                   tuple => jsonPromisified('/headwords/' + tuple.join(','))))
       .then(allResults => {
-        var heads = words.append('ul')
-                        .classed('dict-entries-list', true)
-                        .selectAll('li.dict-entry')
-                        .data((tuple, tupleIdx) => allResults[tupleIdx])
-                        .enter()
-                        .append('li')
-                        .classed('dict-entry', true)
-                        .text(d => '' + d.headwords.join('・'));
+        var heads =
+            words.append('ul')
+                .classed('dict-entries-list', true)
+                .selectAll('li.dict-entry')
+                .data((tuple, tupleIdx) => allResults[tupleIdx])
+                .enter()
+                .append('li')
+                .classed('dict-entry', true)
+                .text(d => '' + d.headwords.concat(d.readings).join('・'));
 
         var noSenseExamplesPromises = [];
         heads.each(entry => noSenseExamplesPromises.push(jsonPromisified(
