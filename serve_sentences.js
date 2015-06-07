@@ -18,7 +18,7 @@ var tags = utils.readLineDelimitedJSON('data-static/wwwjdic-tags.ldjson', true);
 var goodTags =
     utils.readLineDelimitedJSON('data-static/wwwjdic-good-tags.ldjson', true);
 
-// This array contains objects with `english`, `japanese`, and `number` keys.
+// This array contains objects with `english`, `japanese`, and `num` keys.
 // The first two are sentences, and the last is an index number.
 var sentences =
     utils.readLineDelimitedJSON('data-static/wwwjdic-sentences.ldjson');
