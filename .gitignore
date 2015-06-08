@@ -1,4 +1,5 @@
 *.json
+*.ldjson
 node_modules/
 *.swp
 *.bak
