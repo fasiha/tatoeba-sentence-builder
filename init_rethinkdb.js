@@ -45,11 +45,37 @@ r.connect({host : config.dbHost, port : config.dbPort})
       }));
     })
 
-    .then(function() { return connection.close() })
+    .then(function() {
+      console.log("Creating `headwords` secondary index for sentences.");
+      return r.db(config.dbName)
+          .table(config.examplesTable)
+          .indexCreate("headwords", r.row("tags")("headword"), {multi : true})
+          .run(connection);
+    })
 
     .then(function() {
-      console.log("All down for now!");
-      return 1;
+      console.log("Creating `headwordsSense` compound secondary index.");
+      // The arbitrary function being used by indexCreate is building, for each
+      // document, an array of 2-tuples. The length of this array is equal to
+      // the number of tags (i.e., `obj.tags.length`). And its contents are
+      // ["headword", senseNumber]. In plain JS, this is equivalent to
+      // sentences.map(function(obj){return _.zip(_.pluck(obj.tags,"headword"),
+      // _.pluck(obj.tags, "sense"))}).
+      return r.db(config.dbName)
+          .table(config.examplesTable)
+          .indexCreate("headwordsSense",
+                       function(obj) {
+                         return obj("tags").map(function(tag) {
+                           return [ tag("headword"), tag("sense") ];
+                         });
+                       },
+                       {multi : true})
+          .run(connection);
+    })
+
+    .then(function() {
+      console.log("All done, closing connection.");
+      return connection.close()
     })
 
     .catch(console.error.bind(console, 'Error thrown!'));

@@ -60,7 +60,7 @@ function renderData(data) {
 
         var noSenseExamplesPromises = [];
         heads.each(entry => noSenseExamplesPromises.push(jsonPromisified(
-                       '/sentences/' + entry.headwords[0] + '/null')));
+                       '/sentences/' + entry.headwords[0] + '/0')));
 
         Promise.all(noSenseExamplesPromises)
             .then(allNoSenseExamples => {

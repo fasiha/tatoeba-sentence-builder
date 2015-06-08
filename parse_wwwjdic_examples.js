@@ -31,8 +31,7 @@ var sentences = util.read('data/wwwjdic.csv')
                       o.num = lineNumber;
 
                       o.tags = fields[4].split(' ').map(function(code) {
-                        var headword, reading = null, sense = null, form = null,
-                                      good = null;
+                        var headword, reading = "", sense = 0, form = "", good;
 
                         // Strip (reading)
                         code = code.replace(/\((.+)\)/, function(full, match) {
@@ -100,46 +99,53 @@ util.writeLineDelimitedJSON('data-static/wwwjdic-tags.ldjson', tags);
 util.writeLineDelimitedJSON('data-static/wwwjdic-good-tags.ldjson', goodTags);
 
 // Write non-normalized JSON
-var noNumSentences = sentences.map(function(obj) { return _.omit(obj, 'num'); });
+var noNumSentences =
+    sentences.map(function(obj) { return _.omit(obj, 'num'); });
 util.writeLineDelimitedJSON('wwwjdic-sentences-nonnormalized.ldjson',
                             noNumSentences);
 
-// To RethinkDB: get all sentences from it, and add the sentences that aren't
-// already there (only look at Japanese & English parts of the sentence). For
-// those that are already in db, don't touch them.
-var r = require('rethinkdb');
-var config = require('./config');
+if (true) {
+  console.log(
+      "Run\n$ " +
+      "rethinkdb import -f wwwjdic-sentences-nonnormalized.ldjson --table " +
+      config.dbName + "." + config.examplesTable + " --force");
+} else {
+  // To RethinkDB: get all sentences from it, and add the sentences that aren't
+  // already there (only look at Japanese & English parts of the sentence). For
+  // those that are already in db, don't touch them.
+  var r = require('rethinkdb');
+  var config = require('./config');
 
-var examplesTable = config.examplesTable;
+  var examplesTable = config.examplesTable;
 
-var connection = null;
-r.connect({host : config.dbHost, port : config.dbPort})
-    .then(function(c) {
-      connection = c;
-      console.log("Getting all rows out of db.");
-      return r.db(config.dbName)
-          .table(examplesTable)
-          .pluck('japanese', 'english')
-          .run(connection);
-    })
-    .then(function(cursor) { return cursor.toArray(); })
-    .then(function(arr) {
-      console.log("Got " + arr.length + " entries from db.");
+  var connection = null;
+  r.connect({host : config.dbHost, port : config.dbPort})
+      .then(function(c) {
+        connection = c;
+        console.log("Getting all rows out of db.");
+        return r.db(config.dbName)
+            .table(examplesTable)
+            .pluck('japanese', 'english')
+            .run(connection);
+      })
+      .then(function(cursor) { return cursor.toArray(); })
+      .then(function(arr) {
+        console.log("Got " + arr.length + " entries from db.");
 
-      var hash = function(o) { return o.japanese + o.english; };
-      var db = _.object(arr.map(hash));
-      var onlyNew =
-          noNumSentences.filter(function(obj) { return !(hash(obj) in db); });
+        var hash = function(o) { return o.japanese + o.english; };
+        var db = _.object(arr.map(hash));
+        var onlyNew =
+            noNumSentences.filter(function(obj) { return !(hash(obj) in db); });
 
-      console.log("Inserting " + onlyNew.length + " new sentences.");
-      return r.db(config.dbName)
-          .table(examplesTable)
-          .insert(onlyNew)
-          .run(connection);
-    })
-    .then(function() {
-      console.log("All done.");
-      return connection.close();
-    })
-    .catch(console.error.bind(console, 'Error thrown!'));
-
+        console.log("Inserting " + onlyNew.length + " new sentences.");
+        return r.db(config.dbName)
+            .table(examplesTable)
+            .insert(onlyNew)
+            .run(connection);
+      })
+      .then(function() {
+        console.log("All done.");
+        return connection.close();
+      })
+      .catch(console.error.bind(console, 'Error thrown!'));
+}
