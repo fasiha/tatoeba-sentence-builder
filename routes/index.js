@@ -32,17 +32,17 @@ router.post('/sendtoken',
             }),
             function(req, res) { res.render('sent'); });
 
-router.get('/headwords/:words', function(req, res) {
+router.get('/v1/headwords/:words', function(req, res) {
   debug('headwords params:',req.params);
   var words = req.params.words.split(',');
   res.json(jmdict.lookupHeadword(words));
 });
 
-router.get('/readings/:words', function(req, res) {
+router.get('/v1/readings/:words', function(req, res) {
   res.json(jmdict.lookupHeadword(req.params.words.split(',')));
 });
 
-router.get('/sentences/:headword/:sense', function(req, res) {
+router.get('/v1/sentences/:headword/:sense', function(req, res) {
   debug('sentences params:', req.params);
   res.json(sentences.headwordSenseToSentences(req.params.headword,
                                               req.params.sense));

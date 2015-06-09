@@ -46,7 +46,7 @@ function renderData(data) {
           });
 
   Promise.all(coreSubset.map(
-                  tuple => jsonPromisified('/headwords/' + tuple.join(','))))
+                  tuple => jsonPromisified('/v1/headwords/' + tuple.join(','))))
       .then(allResults => {
         var heads =
             words.append('ul')
@@ -60,7 +60,7 @@ function renderData(data) {
 
         var noSenseExamplesPromises = [];
         heads.each(entry => noSenseExamplesPromises.push(jsonPromisified(
-                       '/sentences/' + entry.headwords[0] + '/0')));
+                       '/v1/sentences/' + entry.headwords[0] + '/0')));
 
         Promise.all(noSenseExamplesPromises)
             .then(allNoSenseExamples => {
@@ -97,9 +97,10 @@ function renderData(data) {
 
               // Examples illustrating specific senses
               var examplesPromises = [];
-              senses.each(senseObj => examplesPromises.push(jsonPromisified(
-                              '/sentences/' + senseObj.headword.headwords[0] +
-                              '/' + (senseObj.senseNum + 1))));
+              senses.each(senseObj => examplesPromises.push(
+                              jsonPromisified('/v1/sentences/' +
+                                              senseObj.headword.headwords[0] +
+                                              '/' + (senseObj.senseNum + 1))));
 
               Promise.all(examplesPromises)
                   .then(allSensesExamples => {
