@@ -83,5 +83,15 @@ module.exports = {
       });
     });
     return obj;
+  },
+
+  sum : _.sum,
+
+  mean : function(x) { return this.sum(x) / x.length; },
+
+  median : function(x) {
+    var s = x.sort();
+    return x.length % 2 === 1 ? s[Math.floor(x.length / 2)]
+                              : 0.5 * (s[x.length / 2 - 1] + s[x.length / 2]);
   }
 };
