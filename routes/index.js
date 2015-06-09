@@ -48,4 +48,51 @@ router.get('/v1/sentences/:headword/:sense', function(req, res) {
                                               req.params.sense));
 });
 
+var r = require('rethinkdb');
+var config = require('../config');
+var connection = null;
+var connectionPromise = r.connect({host : config.dbHost, port : config.dbPort});
+
+router.get('/v2/headwords/:words', function(req, res) {
+  var words = req.params.words.split(',');
+  connectionPromise
+      .then(function(c) {
+        connection = c;
+        return r.db(config.dbName)
+            .table(config.headwordsTable)
+            .getAll(r.args(words), {index : 'headwords'})
+            .distinct()
+            // .distinct serves two purposes: (1) convert getAll's stream to
+            // array and (2) get rid of any possible repeated entries
+            .run(connection);
+      })
+      .then(function(results) {
+        res.json(results);
+        return 1;//return connection.close();
+      })
+      //.catch(console.error.bind(console, 'Error thrown!'));
+});
+
+router.get('/v2/sentences/:headword/:sense', function(req, res) {
+  connectionPromise
+      .then(function(c) {
+        connection = c;
+
+        return r.db(config.dbName)
+            .table(config.examplesTable)
+            .getAll([ req.params.headword, +req.params.sense ],
+                    {index : 'headwordsSense'})
+            .limit(2)
+            .pluck('japanese', 'english')
+            // .distinct() does the trick too: converting getAll's stream to an
+            // array
+            .coerceTo('array')
+            .run(connection);
+      })
+      .then(function(results) {
+        res.json(results);
+        return 1;//return connection.close();
+      })
+});
+
 module.exports = router;

@@ -32,21 +32,22 @@ function renderData(data) {
   console.log('Now I have data! And you can too: look in `dataGlobal`.');
   dataGlobal = data;
   
-  var coreSubset = data.words.slice(0, 250);
-  var words =
-      d3.select('#core-words')
-          .append('ol')
-          .selectAll('li.core-word')
-          .data(coreSubset)
-          .enter()
-          .append('li')
-          .classed('core-word', true)
-          .text(function(d, i) {
-            return d.join('；') + ' （' + data.book[i].split('\n')[0] + '）';
-          });
+  var startIdx = 1000;
+  var coreSubset = data.words.slice(startIdx, startIdx + 10);
+  var words = d3.select('#core-words')
+                  .append('ol')
+                  .selectAll('li.core-word')
+                  .data(coreSubset)
+                  .enter()
+                  .append('li')
+                  .classed('core-word', true)
+                  .text(function(d, i) {
+                    return d.join('；') + ' （' +
+                           data.book[startIdx + i].split('\n')[0] + '）';
+                  });
 
   Promise.all(coreSubset.map(
-                  tuple => jsonPromisified('/v1/headwords/' + tuple.join(','))))
+                  tuple => jsonPromisified('/v2/headwords/' + tuple.join(','))))
       .then(allResults => {
         var heads =
             words.append('ul')
@@ -60,7 +61,7 @@ function renderData(data) {
 
         var noSenseExamplesPromises = [];
         heads.each(entry => noSenseExamplesPromises.push(jsonPromisified(
-                       '/v1/sentences/' + entry.headwords[0] + '/0')));
+                       '/v2/sentences/' + entry.headwords[0] + '/0')));
 
         Promise.all(noSenseExamplesPromises)
             .then(allNoSenseExamples => {
@@ -98,7 +99,7 @@ function renderData(data) {
               // Examples illustrating specific senses
               var examplesPromises = [];
               senses.each(senseObj => examplesPromises.push(
-                              jsonPromisified('/v1/sentences/' +
+                              jsonPromisified('/v2/sentences/' +
                                               senseObj.headword.headwords[0] +
                                               '/' + (senseObj.senseNum + 1))));
 
