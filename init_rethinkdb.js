@@ -25,7 +25,7 @@ r.connect({host : config.dbHost, port : config.dbPort})
     .then(function() {
       return r.db(config.dbName).tableList().run(connection);
     })
-
+    // Creating tables
     .then(function(tables) {
       return Promise.all([
         config.corewordsTable,
@@ -44,7 +44,27 @@ r.connect({host : config.dbHost, port : config.dbPort})
         return 1;
       }));
     })
+    // Index for table of words to cover
+    .then(function() {
+      console.log("Getting indexes on dictionary table.");
+      return r.db(config.dbName)
+          .table(config.headwordsTable)
+          .indexList()
+          .run(connection);
+    })
 
+    .then(function(indexes) {
+      if (indexes.indexOf("headwords") < 0) {
+        console.log("Creating `headwords` index on dictionary table.");
+        return r.db(config.dbName)
+            .table(config.headwordsTable)
+            .indexCreate("headwords", {multi : true})
+            .run(connection);
+      }
+      console.log("Secondary index `headwords` already exists in dict table.");
+      return [];
+    })
+    // Index for dictonary table
     .then(function() {
       console.log("Getting indexes on corewords table.");
       return r.db(config.dbName)
@@ -64,7 +84,7 @@ r.connect({host : config.dbHost, port : config.dbPort})
       console.log("Secondary index `sourceNum` already exists in corewords.");
       return [];
     })
-
+    // Two indexes for example sentences table
     .then(function() {
       console.log("Getting indexes on examples table.");
       return r.db(config.dbName)
