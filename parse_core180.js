@@ -10,6 +10,7 @@ var utils = require('./nodeUtilities.js');
 
 // Basic object set
 var basic = utils.read("data/Basic180.tsv")
+                .trim()
                 .split('\n')
                 .map(function(s) {
                   return {japanese : s, english : "", tags : [], ve : []};
@@ -30,16 +31,16 @@ Promise.all(basic.map(function(o, idx) {
              });
        }))
     .then(function() {
-      //
+      utils.writeLineDelimitedJSON("data-static/basic.ldjson", basic);
+
       // RethinkDB
-      // 
       r.connect({host : config.dbHost, port : config.dbPort})
           .then(function(c) {
             connection = c;
-            console.log("Adding basic.");
+            console.log("Adding basic with timestamps.");
             return r.db(config.dbName)
                 .table(config.deckTable)
-                .insert(basic)
+                .insert(utils.withDate(basic))
                 .run(connection);
           })
           .then(function() {

@@ -93,5 +93,11 @@ module.exports = {
     var s = x.sort();
     return x.length % 2 === 1 ? s[Math.floor(x.length / 2)]
                               : 0.5 * (s[x.length / 2 - 1] + s[x.length / 2]);
+  },
+
+  withDate : function(v) {
+    return v.map(function(o) {
+      return _.merge(o, {modifiedTime : new Date()});
+    });
   }
 };

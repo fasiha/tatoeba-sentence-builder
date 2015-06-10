@@ -1,5 +1,5 @@
 "use strict";
-var util = require('./nodeUtilities.js');
+var utils = require('./nodeUtilities.js');
 var _ = require('lodash');
 
 var tags = {};
@@ -16,7 +16,7 @@ function insertIntoHash(hash, headword, sense, lineNumber) {
   }
 }
 
-var sentences = util.read('data/wwwjdic.csv')
+var sentences = utils.read('data/wwwjdic.csv')
                     .trim()
                     .split('\n')
                     .map(function(line, lineNumber) {
@@ -28,7 +28,10 @@ var sentences = util.read('data/wwwjdic.csv')
 
                       o.english = fields[3];
 
-                      o.num = lineNumber;
+                      o.source = {
+                        num : lineNumber,
+                        name : "Tatoeba corpus"
+                      };
 
                       o.tags = fields[4].split(' ').map(function(code) {
                         var headword, reading = "", sense = 0, form = "", good;
@@ -86,24 +89,26 @@ _.keys(tags).forEach(function(headword) {
       });
 });
 
+// Time-tag
+sentences = utils.withDate(sentences);
+
 // Write normalized JSON/LDJSON files.
 var normalizedSentences =
     sentences.map(function(obj) { return _.omit(obj, 'tags'); });
-util.writeJSON('wwwjdic-sentences.json', normalizedSentences);
-util.writeJSON('wwwjdic-tags.json', tags);
-util.writeJSON('wwwjdic-good-tags.json', goodTags);
+utils.writeJSON('wwwjdic-sentences.json', normalizedSentences);
+utils.writeJSON('wwwjdic-tags.json', tags);
+utils.writeJSON('wwwjdic-good-tags.json', goodTags);
 
-util.writeLineDelimitedJSON('data-static/wwwjdic-sentences.ldjson',
+utils.writeLineDelimitedJSON('data-static/wwwjdic-sentences.ldjson',
                             normalizedSentences);
-util.writeLineDelimitedJSON('data-static/wwwjdic-tags.ldjson', tags);
-util.writeLineDelimitedJSON('data-static/wwwjdic-good-tags.ldjson', goodTags);
+utils.writeLineDelimitedJSON('data-static/wwwjdic-tags.ldjson', tags);
+utils.writeLineDelimitedJSON('data-static/wwwjdic-good-tags.ldjson', goodTags);
 
 // Write non-normalized JSON
-var noNumSentences =
-    sentences.map(function(obj) { return _.omit(obj, 'num'); });
-util.writeLineDelimitedJSON('wwwjdic-sentences-nonnormalized.ldjson',
-                            noNumSentences);
+utils.writeLineDelimitedJSON('wwwjdic-sentences-nonnormalized.ldjson',
+                            sentences);
 
+var config = require('./config');
 if (true) {
   console.log(
       "Run\n$ " +
@@ -114,7 +119,6 @@ if (true) {
   // already there (only look at Japanese & English parts of the sentence). For
   // those that are already in db, don't touch them.
   var r = require('rethinkdb');
-  var config = require('./config');
 
   var examplesTable = config.examplesTable;
 
@@ -135,7 +139,7 @@ if (true) {
         var hash = function(o) { return o.japanese + o.english; };
         var db = _.object(arr.map(hash));
         var onlyNew =
-            noNumSentences.filter(function(obj) { return !(hash(obj) in db); });
+            sentences.filter(function(obj) { return !(hash(obj) in db); });
 
         console.log("Inserting " + onlyNew.length + " new sentences.");
         return r.db(config.dbName)

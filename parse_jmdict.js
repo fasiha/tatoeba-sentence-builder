@@ -1,6 +1,6 @@
 "use strict";
 var lo = require('lodash');
-var util = require('./nodeUtilities.js');
+var utils = require('./nodeUtilities.js');
 
 function extractKanjiHeadwords(block) {
   return block.match(/<keb>[\S\s]*?<\/keb>/g)
@@ -20,7 +20,7 @@ function extractSenses(block) {
   });
 }
 
-var entries = util.read('data/JMdict_e').trim().split('</entry>');
+var entries = utils.read('data/JMdict_e').trim().split('</entry>');
 
 var headwords = entries.map(function(entry, number) {
   entry = entry.replace(/\n/g, '');
@@ -59,7 +59,10 @@ var headwords = entries.map(function(entry, number) {
 
   // Finally, append the number for easy cross-reference
   if (obj) {
-    obj.num = number;
+    obj.source = {
+      num : number,
+      name : "JMdict"
+    };
   }
 
   return obj;
@@ -67,15 +70,18 @@ var headwords = entries.map(function(entry, number) {
 
 headwords = lo.compact(headwords);  // Only needed for the last empty entry
 
+// Add timestamp
+headwords = utils.withDate(headwords);
+
 // Write everything
-util.writeJSON('JMdict-all.json', headwords);
-util.writeLineDelimitedJSON('data-static/JMdict-all.ldjson', headwords);
+utils.writeJSON('JMdict-all.json', headwords);
+utils.writeLineDelimitedJSON('data-static/JMdict-all.ldjson', headwords);
 
 // Everything except senses
-util.writeJSON('JMdict-headwords.json',
+utils.writeJSON('JMdict-headwords.json',
                headwords.map(function(obj) { return lo.omit(obj, 'senses'); }));
 // Senses and numbers
-util.writeJSON('JMdict-senses.json', headwords.map(function(obj) {
+utils.writeJSON('JMdict-senses.json', headwords.map(function(obj) {
   return lo.omit(obj, 'headwords,type'.split(','));
 }));
 
@@ -97,14 +103,15 @@ r.connect({host : config.dbHost, port : config.dbPort})
     .then(function() {
       console.log("Adding all headwords.");
       if (true) {
-        console.log("Run\n$ rethinkdb import -f JMdict-all.json --table " +
-                    config.dbName + ".headwords --pkey num --force");
+        console.log(
+            "Run\n$ rethinkdb import -f data-static/JMdict-all.ldjson --table " +
+            config.dbName + ".headwords --force");
         return 1;
       }
       // This is disabled because node complains out of stack space :( FIXME?
       return r.db(config.dbName)
           .table(config.headwordsTable)
-          .insert(headwords)
+          .insert(utils.withDate(headwords))
           .run(connection);
     })
     .then(function() { return connection.close() })

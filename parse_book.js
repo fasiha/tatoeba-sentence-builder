@@ -4,14 +4,14 @@ var _ = require('lodash');
 
 var coreTuples = utils.readJSON('ordered-words.json')
                      .map(function(s) { return {words : s}; });
-var book =
-    utils.readJSON('core5k.json')
-        .map(function(s, idx) {
-          return {source : 'Tono', sourceDetails : s, sourceNum : idx + 1};
-        });
-
-var combined =
-    _.zip(book, coreTuples).map(function(z) { return _.merge(z[0], z[1]); });
+utils.readJSON('core5k.json')
+    .forEach(function(s, idx) {
+      coreTuples[idx].source = {
+        name : 'Tono',
+        num : idx,
+        details : s
+      };
+    });
 
 // To RethinkDB: get all sentences from it, and add the sentences that aren't
 // already there (only look at Japanese & English parts of the sentence). For
@@ -33,7 +33,7 @@ r.connect({host : config.dbHost, port : config.dbPort})
       console.log("Adding corewords.");
       return r.db(config.dbName)
           .table(config.corewordsTable)
-          .insert(combined)
+          .insert(utils.withDate(coreTuples))
           .run(connection);
     })
     .then(function() {
