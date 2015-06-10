@@ -24,6 +24,7 @@
     "passwordless-memorystore": "latest",
     "serve-favicon": "latest",
     "rethinkdb" : "latest",
-    "bluebird" : "latest"
+    "bluebird" : "latest",
+    "request" : "latest"
   }
 }
