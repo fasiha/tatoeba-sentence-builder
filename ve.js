@@ -15,10 +15,16 @@ function simplifyVe(ve) {
   return o;
 }
 
-function makeVe(s) {
+function makeVe(s, raw) {
+  if (typeof raw === 'undefined') {
+    raw = false;
+  }
   return request('http://' + config.veHost + ":" + config.vePort + '/' +
                  encodeURIComponent(s))
       .then(function(contents) {
+        if (raw) {
+          return contents[1];
+        }
         return JSON.parse(contents[1]).map(simplifyVe);
       })
       .catch(function(err) { console.error('Error thrown!', err.stack); });

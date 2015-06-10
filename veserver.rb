@@ -8,9 +8,9 @@ def ve2json(words)
 end
 
 set :port, 5331
-get '/:input' do
+get '/*' do
   content_type :json
   cross_origin
-  ve2json(Ve.in(:ja).words(params['input'].strip))
+  ve2json(Ve.in(:ja).words(params['splat'].join.strip))
 end
 
