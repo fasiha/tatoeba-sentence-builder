@@ -25,6 +25,7 @@
     "serve-favicon": "latest",
     "rethinkdb" : "latest",
     "bluebird" : "latest",
-    "request" : "latest"
+    "request" : "latest",
+    "child-process-promise": "latest"
   }
 }

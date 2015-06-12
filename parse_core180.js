@@ -9,11 +9,18 @@ var config = require('./config');
 var utils = require('./nodeUtilities.js');
 
 // Basic object set
-var basic = utils.read("data/Basic180.tsv")
+var basic = utils.read("data/BasicEng.tsv")
                 .trim()
                 .split('\n')
                 .map(function(s) {
-                  return {japanese : s, english : "", tags : [], ve : []};
+                  var tuple = s.split('\t');
+                  return {
+                    japanese : tuple[0],
+                    english : tuple[1],
+                    tags : [],
+                    ve : [],
+                    source : {name : "self"}
+                  };
                 });
 
 // Ve. Sinatra even with thin apparently can't handle a couple of hundred
@@ -22,8 +29,7 @@ var basic = utils.read("data/Basic180.tsv")
 // service requests; restart it.
 var connection = null;
 Promise.all(basic.map(function(o, idx) {
-         return Promise.delay(idx * 150 + Math.floor(idx / 50) * 100)
-             .then(function() { return ve(o.japanese); })
+         return ve(o.japanese)
              .then(function(veObj) {
                o.ve = veObj;
                console.log(idx, " done");

@@ -1,7 +1,7 @@
 "using strict";
 
 var Promise = require("bluebird");
-var request = Promise.promisify(require("request"));
+var exec = require("child-process-promise").exec;
 var _ = require('lodash');
 var config = require('./config');
 
@@ -19,13 +19,13 @@ function makeVe(s, raw) {
   if (typeof raw === 'undefined') {
     raw = false;
   }
-  return request('http://' + config.veHost + ":" + config.vePort + '/' +
-                 encodeURIComponent(s))
+  return exec('echo "' + s + '" | ruby cmd-ve.rb')
       .then(function(contents) {
+        var stdout = contents.stdout;
         if (raw) {
-          return contents[1];
+          return stdout;
         }
-        return JSON.parse(contents[1]).map(simplifyVe);
+        return JSON.parse(stdout).map(simplifyVe);
       })
       .catch(function(err) { console.error('Error thrown!', err.stack); });
 }
