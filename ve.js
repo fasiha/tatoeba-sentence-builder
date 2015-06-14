@@ -1,7 +1,7 @@
-"using strict";
+'using strict';
 
-var Promise = require("bluebird");
-var exec = require("child-process-promise").exec;
+var spawn = require('child-process-promise').spawn;
+var Promise = require('bluebird');
 var _ = require('lodash');
 var config = require('./config');
 
@@ -19,15 +19,23 @@ function makeVe(s, raw) {
   if (typeof raw === 'undefined') {
     raw = false;
   }
-  return exec('echo "' + s + '" | ruby cmd-ve.rb')
-      .then(function(contents) {
-        var stdout = contents.stdout;
+  var buffer = new Buffer(_.isArray(s) ? s.join('\n') : s);
+  return Promise.resolve(spawn('ruby', ['cmd-ve.rb'], {capture : ['stdout']})
+                             .progress(function(childProcess) {
+                               childProcess.stdin.write(buffer);
+                               childProcess.stdin.end();
+                             }))
+      .then(function(results) {
+        var res = results.stdout.trim();
         if (raw) {
-          return stdout;
+          return res;
         }
-        return JSON.parse(stdout).map(simplifyVe);
+        res = res.split('\n').map(function(str) {
+          return JSON.parse(str).map(simplifyVe)
+        });
+        return res.length === 1 ? res[0] : res;
       })
-      .catch(function(err) { console.error('Error thrown!', err.stack); });
+      .catch(function(err) { console.error('spawn/ve error: ', err); });
 }
-
 module.exports = makeVe;
+
