@@ -3,13 +3,53 @@
   <head>
     <meta charset="utf-8"/>
     <title>Sentence Builder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+* {
+    box-sizing: border-box;
+}
+/*This just stops me getting horizontal scrolling if anything overflows the width*/
+body {
+    overflow-x: hidden;
+}
+/*Just removing default browser padding/margin*/
+html, body {
+  padding: 0;
+  margin: 0;
+}
 
+.top { 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  position: relative;
+  z-index: 10;
+  height: 100px;
+}
 .container {
-    display:flex;
+  display:flex;
+  overflow: hidden;
+  height: 100vh;
+  margin-top: -100px;
+  padding-top: 100px;
+  position: relative;
+  width: 100%;
+  backface-visibility: hidden;
+  will-change: overflow;
 }
 .flexible {
-    flex-grow: 1;
+  overflow: auto;
+  height: auto;
+  padding: .5rem;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+
+  flex-grow: 1;
+}
+
+.warning {
+  color: #dd4444;
 }
 
     </style>
@@ -20,14 +60,16 @@
     <script src="kefir.js" charset="utf-8"></script>
   </head>
   <body>
-  <h1>Sentence Builder</h1>
-  <div class="container">
+    <div class="top">
+      <h1>Sentence Builder</h1>
+    </div>
+    <div class="container">
       <div class="flexible" id="core-words"></div>
       <div class="flexible" id="dictionary"></div>
       <div class="flexible" id="sentences"></div>
       <div class="flexible" id="deck"></div>
-  </div>
+    </div>
 
-  <script charset="utf-8" src="deckbuilder.js"></script>
+    <script charset="utf-8" src="deckbuilder.js"></script>
   </body>
 </html>
