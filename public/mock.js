@@ -32,7 +32,7 @@ function renderData(data) {
   console.log('Now I have data! And you can too: look in `dataGlobal`.');
   dataGlobal = data;
   
-  var startIdx = 1000;
+  var startIdx = 0;
   var coreSubset = data.words.slice(startIdx, startIdx + 10);
   var words = d3.select('#core-words')
                   .append('ol')

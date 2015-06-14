@@ -5,11 +5,11 @@ var GLOB;
 
 jsonPromisified('v2/corewords')
     .then(function(corewords) {
-      var corewordList = d3.select('#core-words')
-                             .selectAll('p.core-word')
+      var corewordList = d3.select('#core-words').append('ol')
+                             .selectAll('li.core-word')
                              .data(corewords)
                              .enter()
-                             .append('p')
+                             .append('li')
                              .classed('core-word', true)
                              .text(corewordObj => corewordObj.words.join('；'));
 
@@ -26,15 +26,35 @@ jsonPromisified('v2/corewords')
                     .text('No entries found for: ' + core.words.join('・'));
                 return entries;
               }
-              d3.select('#dictionary')
-                  .selectAll('p.dict-entry')
-                  .data(entries)
-                  .enter()
-                  .append('p')
-                  .classed('dict-entry', true)
-                  .text(entry =>
-                            entry.headwords.concat(entry.readings).join('・'));
+              var headwordList =
+                  d3.select('#dictionary')
+                      .append('ol')
+                      .selectAll('li.dict-entry')
+                      .data(entries)
+                      .enter()
+                      .append('li')
+                      .classed('dict-entry', true)
+                      .text(entry => entry.headwords.concat(entry.readings)
+                                         .join('・'));
+              var senses =
+                  headwordList.append('ol')
+                      .selectAll('li.sense-entry')
+                      .data(entry => entry.senses.map((sense, i) =>
+                                                      {
+                                                        return {
+                                                          sense : sense,
+                                                          entry : entry,
+                                                          senseNum : i
+                                                        };
+                                                      }))
+                      .enter()
+                      .append('li')
+                      .classed('sense-entry', true)
+                      .text(senseObj => senseObj.sense);
               return entries;
+            })
+            .catch(function(err) {
+              console.error("Error: headwords, ", err, err.stack)
             });
       });
 
