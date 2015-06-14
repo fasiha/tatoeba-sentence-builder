@@ -12,30 +12,24 @@ var utils = require('./nodeUtilities.js');
 var basic = utils.read("data/BasicEng.tsv")
                 .trim()
                 .split('\n')
-                .map(function(s) {
+                .map(function(s, idx) {
                   var tuple = s.split('\t');
                   return {
                     japanese : tuple[0],
                     english : tuple[1],
                     tags : [],
                     ve : [],
-                    source : {name : "self"}
+                    source : {name : "self"},
+                    num : idx
                   };
                 });
 
-// Ve. Sinatra even with thin apparently can't handle a couple of hundred
-// sessions slamming it at the same time, so we have to put this ridiculous
-// delay in. But if you may keep seeing Sinatra take longer and longer to
-// service requests; restart it.
+// Ve & RethinkDB.
 var connection = null;
-Promise.all(basic.map(function(o, idx) {
-         return ve(o.japanese)
-             .then(function(veObj) {
-               o.ve = veObj;
-               console.log(idx, " done");
-               return 1;
-             });
-       }))
+ve(_.pluck(basic, 'japanese'))
+    .then(function(arrOfVeArrs) {
+      arrOfVeArrs.forEach(function(veArr, idx) { basic[idx].ve = veArr; })
+    })
     .then(function() {
       utils.writeLineDelimitedJSON("data-static/basic.ldjson", basic);
 
