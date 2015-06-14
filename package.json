@@ -26,6 +26,7 @@
     "rethinkdb" : "latest",
     "bluebird" : "latest",
     "request" : "latest",
-    "child-process-promise": "latest"
+    "child-process-promise": "latest",
+    "node-copy-paste" : "latest"
   }
 }
