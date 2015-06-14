@@ -53,7 +53,8 @@ if (!NO_V1) {
 var r = require('rethinkdb');
 var config = require('../config');
 var connection = null;
-var connectionPromise = r.connect({host : config.dbHost, port : config.dbPort});
+var connectionPromise = r.connect(
+    {host : config.dbHost, port : config.dbPort, db : config.dbName});
 
 router.get('/v2/headwords/:words', function(req, res) {
   var words = req.params.words.split(',');
@@ -95,6 +96,23 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
         res.json(results);
         return 1;//return connection.close();
       })
+});
+
+router.get('/v2/corewords', function(req, res) {
+  connectionPromise.then(function(c) {
+                     connection = c;
+
+                     return r.table(config.corewordsTable)
+                         .orderBy({index : 'sourceNum'})
+                         .without('id', 'modifiedTime')
+                         .limit(500)
+                         .coerceTo('array')
+                         .run(connection);
+                   })
+      .then(function(results) {
+        res.json(results);
+        return 1;
+      });
 });
 
 module.exports = router;

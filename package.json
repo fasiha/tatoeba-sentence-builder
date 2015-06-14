@@ -10,8 +10,10 @@
   "author": "aldebrn",
   "license": "public domain",
   "dependencies": {
-    "bluebird": "^2.9.27",
+    "bluebird": "latest",
     "body-parser": "latest",
+    "child-process-promise": "latest",
+    "compression": "^1.5.0",
     "cookie-parser": "latest",
     "debug": "latest",
     "ejs": "latest",
@@ -20,13 +22,11 @@
     "express-session": "latest",
     "lodash": "latest",
     "morgan": "latest",
+    "node-copy-paste": "latest",
     "passwordless": "latest",
     "passwordless-memorystore": "latest",
-    "serve-favicon": "latest",
-    "rethinkdb" : "latest",
-    "bluebird" : "latest",
-    "request" : "latest",
-    "child-process-promise": "latest",
-    "node-copy-paste" : "latest"
+    "request": "latest",
+    "rethinkdb": "latest",
+    "serve-favicon": "latest"
   }
 }

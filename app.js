@@ -1,6 +1,7 @@
 var siteConfig = require('./config.js');
 
 var express = require('express');
+var compression = require('compression');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
@@ -26,6 +27,9 @@ passwordless.addDelivery(function(tokenToSend, uidToSend, recipient, callback) {
   console.log(result);
   callback(null);
 });
+
+// First things first
+app.use(compression());
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
