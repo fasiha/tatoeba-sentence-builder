@@ -64,6 +64,7 @@ router.get('/v2/headwords/:words', function(req, res) {
         return r.db(config.dbName)
             .table(config.headwordsTable)
             .getAll(r.args(words), {index : 'headwords'})
+            .without('id', 'modifiedTime')
             .distinct()
             // .distinct serves two purposes: (1) convert getAll's stream to
             // array and (2) get rid of any possible repeated entries
@@ -85,7 +86,7 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
             .table(config.examplesTable)
             .getAll([ req.params.headword, +req.params.sense ],
                     {index : 'headwordsSense'})
-            .limit(2)
+            .limit(5)
             .pluck('japanese', 'english')
             // .distinct() does the trick too: converting getAll's stream to an
             // array
