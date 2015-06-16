@@ -20,7 +20,11 @@ coreResponseStream.onValue(function(corewords) {
 
 var coreClickStream =
     Kefir.fromEvents(document.querySelector('#core-words'), 'click')
-        .map(clickEvent => clickEvent.target.__data__);
+        .map(clickEvent => {
+          d3.selectAll('li.clicked.core-word').classed('clicked', false);
+          clickEvent.target.className += ' clicked';
+          return clickEvent.target.__data__;
+        });
 
 var dictResponseStream =
     coreClickStream.flatMap(coreword => Kefir.fromPromise(jsonPromisified(
@@ -66,6 +70,9 @@ var entryClickStream =
                if (!entryOrSense) { // No data!
                  return null;
                }
+               d3.selectAll('li.clicked.dict-entry').classed('clicked', false);
+               d3.selectAll('li.clicked.sense-entry').classed('clicked', false);
+               clickEvent.target.className += ' clicked';
 
                var senseNum = 0, headword;
                if ('entry' in entryOrSense && 'sense' in entryOrSense) {
@@ -86,9 +93,6 @@ var sentenceResponseStream = entryClickStream.flatMap(
 sentenceResponseStream.merge(entryClickStream.map(() => null))
     .combine(entryClickStream)
     .onValue(function([sentences, {headword, senseNum}]) {
-  if (typeof headword === 'undefined') {
-    return;
-  }
   if (sentences === null) {
     // clear sentence box
     d3.select('#sentences').text('');
