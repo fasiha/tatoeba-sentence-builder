@@ -87,7 +87,7 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
             .getAll([ req.params.headword, +req.params.sense ],
                     {index : 'headwordsSense'})
             .limit(5)
-            .pluck('japanese', 'english')
+            .pluck('japanese', 'english', 'tags')
             // .distinct() does the trick too: converting getAll's stream to an
             // array
             .coerceTo('array')
@@ -107,6 +107,22 @@ router.get('/v2/corewords', function(req, res) {
                          .orderBy({index : 'sourceNum'})
                          .without('id', 'modifiedTime')
                          .limit(500)
+                         .coerceTo('array')
+                         .run(connection);
+                   })
+      .then(function(results) {
+        res.json(results);
+        return 1;
+      });
+});
+
+router.get('/v2/deck', function(req, res) {
+  connectionPromise.then(function(c) {
+                     connection = c;
+
+                     return r.table(config.deckTable)
+                         .orderBy({index : "groupNums"})
+                         .without('modifiedTime')
                          .coerceTo('array')
                          .run(connection);
                    })

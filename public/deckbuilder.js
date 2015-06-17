@@ -3,9 +3,10 @@ var jsonPromisified = Promise.promisify(d3.json);
 
 var GLOB;
 
-var requestStream = Kefir.constant('v2/corewords');
+var coreRequestStream = Kefir.constant('/v2/corewords');
 var coreResponseStream =
-    requestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
+    coreRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
+
 coreResponseStream.onValue(function(corewords) {
   d3.select('#core-words')
       .append('ol')
@@ -14,8 +15,22 @@ coreResponseStream.onValue(function(corewords) {
       .enter()
       .append('li')
       .classed('core-word', true)
-      .text(corewordObj => corewordObj.words.join('；'));
+      .text(corewordObj =>
+                corewordObj.words.join('；') +
+                ` (${tonoDetailsCleanup(corewordObj.source.details)})`);
+});
 
+var deckRequestStream = Kefir.constant('/v2/deck');
+var deckResponseStream =
+    deckRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
+deckResponseStream.onValue(function(deck) {
+  d3.select('#deck')
+      .selectAll('p.deck-sentence')
+      .data(deck)
+      .enter()
+      .append('p')
+      .classed('deck-sentence', true)
+      .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
 });
 
 var coreClickStream =
@@ -49,7 +64,9 @@ dictResponseStream.merge(coreClickStream.map(() => null)).combine(coreClickStrea
             .enter()
             .append('li')
             .classed('dict-entry', true)
-            .text(entry => entry.headwords.concat(entry.readings).join('・'));
+            .text(entry => entry.headwords.join('・') + (entry.readings.length
+                               ? ('・・' + entry.readings.join('・'))
+                               : ''));
     headwordList.append('ol')
         .selectAll('li.sense-entry')
         .data(entry => entry.senses.map(
@@ -112,3 +129,35 @@ sentenceResponseStream.merge(entryClickStream.map(() => null))
   }
 });
 
+function findPrePostfix(a, b) {
+  var minLength = Math.min(a.length, b.length);
+
+  // Important initialization and prefix search
+  var preLen = minLength;
+  for (var i = 0; i < minLength; i++) {
+    if (a[i] !== b[i]) {
+      preLen = i;
+      break;
+    }
+  }
+
+  // Similar search for postfix search plus an important initialization
+  var postLen = minLength - preLen;
+  for (var i = 0; i < minLength - preLen; i++) {
+    if (a[a.length - i - 1] !== b[b.length - i - 1]) {
+      postLen = i;
+      break;
+    }
+  }
+
+  return {
+    a : a.substring(preLen, a.length - postLen),
+    b : b.substring(preLen, b.length - postLen),
+    prefix : a.substring(0, preLen),
+    postfix : a.substring(a.length - postLen, a.length)
+  };
+}
+
+function tonoDetailsCleanup(details) {
+  return details.split('\n')[0].replace(/^[0-9]+ /, '');
+}

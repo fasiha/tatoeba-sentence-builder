@@ -44,6 +44,52 @@ r.connect({host : config.dbHost, port : config.dbPort})
         return 1;
       }));
     })
+    // Index for deckTable
+    .then(function() {
+      console.log("Getting indexes: deck table.");
+      return r.db(config.dbName)
+          .table(config.deckTable)
+          .indexList()
+          .run(connection);
+    })
+
+    .then(function(indexes) {
+      var p = [];
+      if (indexes.indexOf("groupCoreNum") < 0) {
+        console.log("Creating `groupCoreNum` index on deck table.");
+        p.push(r.db(config.dbName)
+                   .table(config.deckTable)
+                   .indexCreate("groupCoreNum", r.row("group")("coreNum"),
+                                {multi : true})
+                   .run(connection));
+      } else {
+        console.log("2ndary index `groupCoreNum` already exists: deck table.");
+      }
+
+      if (indexes.indexOf("groupNums") < 0) {
+        console.log("Creating `groupNums` index on deck table.");
+        p.push(r.db(config.dbName)
+                   .table(config.deckTable)
+                   .indexCreate(
+                       "groupNums",
+                       [ r.row('group')('coreNum'), r.row('group')('num') ])
+                   .run(connection));
+      } else {
+        console.log(
+            "Secondary index `groupNums` already exists in deck table.");
+      }
+
+      if (indexes.indexOf("groupNum") < 0) {
+        console.log("Creating `groupNum` index on deck table.");
+        p.push(r.db(config.dbName)
+                   .table(config.deckTable)
+                   .indexCreate("groupNum", r.row('group')('num'))
+                   .run(connection));
+      } else {
+        console.log("Secondary index `groupNum` already exists in deck table.");
+      }
+      return Promise.all(p);
+    })
     // Index for table of words to cover
     .then(function() {
       console.log("Getting indexes on dictionary table.");
