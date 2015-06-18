@@ -125,7 +125,7 @@ r.connect({host : config.dbHost, port : config.dbPort})
         console.log("Creating number index on corewords table.");
         return r.db(config.dbName)
             .table(config.corewordsTable)
-            .indexCreate(r.row("source")("num"))
+            .indexCreate("sourceNum", r.row("source")("num"))
             .run(connection);
       }
       console.log("Secondary index `sourceNum` already exists in corewords.");
