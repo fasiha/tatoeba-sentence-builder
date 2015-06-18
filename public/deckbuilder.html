@@ -20,6 +20,7 @@ html, body {
 
 .top { 
   display: flex;
+  display: -webkit-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
@@ -28,7 +29,8 @@ html, body {
   height: 100px;
 }
 .container {
-  display:flex;
+  display: flex;
+  display: -webkit-flex;
   overflow: hidden;
   height: 100vh;
   margin-top: -100px;
@@ -44,9 +46,7 @@ html, body {
   padding: .5rem;
   -webkit-overflow-scrolling: touch;
   -ms-overflow-style: none;
-    width: 25%;
-
-  flex-grow: 1;
+  width: 25%;
 }
 // See http://benfrain.com/independent-scrolling-panels-body-scroll-using-just-css/
 .warning {
