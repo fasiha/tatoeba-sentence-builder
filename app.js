@@ -10,22 +10,47 @@ var expressSession = require('express-session');
 var bodyParser = require('body-parser');
 
 var passwordless = require('passwordless');
-var MemoryStore = require('passwordless-memorystore');
+var RethinkDBStore = require('passwordless-rethinkdbstore');
+var sendgrid = require('sendgrid')(siteConfig.sendgridApiKey);
 
 var routes = require('./routes/index');
 
 var app = express();
 
-var host = 'http://localhost:3000';
+var host = 'http://' + siteConfig.webHost + ':' + siteConfig.webPort;
 
 // Setup of Passwordless
-passwordless.init(new MemoryStore());
+passwordless.init(new RethinkDBStore({
+  host : siteConfig.dbHost,
+  port : siteConfig.dbPort,
+  db : siteConfig.dbName
+}));
 passwordless.addDelivery(function(tokenToSend, uidToSend, recipient, callback) {
   // Print out token
-  var result = 'Hello! You can now access your account here: ' + host + '?token=' +
-               tokenToSend + '&uid=' + encodeURIComponent(uidToSend);
+  var url =
+      host + '?token=' + tokenToSend + '&uid=' + encodeURIComponent(uidToSend);
+  var result = 'Hi! Follow this link to log in to your Unlocked account:\n\n' +
+               url + '\n\nMuch love,\n〜Japanese Unlocked';
   console.log(result);
-  callback(null);
+  if (false) {
+    sendgrid.send(
+        {
+          to : recipient,
+          from : 'wuzzyview@gmail.com',
+          fromName : 'Japanese Unlocked',
+          subject : 'Your passwordless login to Unlocked',
+          text : result
+        },
+        function(err, json) {
+          if (err) {
+            console.error(err);
+          }
+          console.log(json);
+          callback(err);
+        });
+  } else {
+    callback(null);
+  }
 });
 
 // First things first
@@ -46,13 +71,16 @@ app.use(expressSession({
   resave : false,
   saveUninitialized : false
 }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/data-static', express.static(path.join(__dirname, 'data-static')));
+app.disable('x-powered-by');
+
 // Passwordless middleware
 app.use(passwordless.sessionSupport());
 app.use(passwordless.acceptToken({successRedirect : '/'}));
 
+// Routes
 app.use('/', routes);
+app.use('/static', express.static(path.join(__dirname, 'public')));
+app.use('/data-static', express.static(path.join(__dirname, 'data-static')));
 
 /// catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -62,12 +90,14 @@ app.use(function(req, res, next) {
 });
 
 // development error handler
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {message : err.message, error : err});
-});
+if (siteConfig.production) {
+  app.use(function(err, req, res, next) {
+    res.status(err.status || 500);
+    res.render('error', {message : err.message, error : err});
+  });
+}
 
-app.set('port', process.env.PORT || 3000);
+app.set('port', siteConfig.webPort);
 
 var server = app.listen(app.get('port'), function() {
   console.log('Express server listening on port ' + server.address().port);

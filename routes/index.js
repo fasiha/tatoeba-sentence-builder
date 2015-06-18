@@ -2,11 +2,6 @@ var debug = require('debug')('routes');
 var express = require('express');
 var router = express.Router();
 
-const NO_V1 = true;
-if (!NO_V1) {
-  var jmdict = require('../serve_jmdict.js');
-  var sentences = require('../serve_sentences.js');
-}
 var passwordless = require('passwordless');
 
 router.get('/', function(req, res) { res.render('index', {user : req.user}); });
@@ -33,23 +28,7 @@ router.post('/sendtoken',
               callback(null, user);
             }),
             function(req, res) { res.render('sent'); });
-if (!NO_V1) {
-  router.get('/v1/headwords/:words', function(req, res) {
-    debug('headwords params:', req.params);
-    var words = req.params.words.split(',');
-    res.json(jmdict.lookupHeadword(words));
-  });
 
-  router.get('/v1/readings/:words', function(req, res) {
-    res.json(jmdict.lookupHeadword(req.params.words.split(',')));
-  });
-
-  router.get('/v1/sentences/:headword/:sense', function(req, res) {
-    debug('sentences params:', req.params);
-    res.json(sentences.headwordSenseToSentences(req.params.headword,
-                                                req.params.sense));
-  });
-}
 var r = require('rethinkdb');
 var config = require('../config');
 var connection = null;
@@ -119,9 +98,25 @@ router.get('/v2/corewords', function(req, res) {
 router.get('/v2/deck', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
-
                      return r.table(config.deckTable)
                          .orderBy({index : "groupNums"})
+                         .without('modifiedTime')
+                         .coerceTo('array')
+                         .run(connection);
+                   })
+      .then(function(results) {
+        res.json(results);
+        return 1;
+      });
+});
+
+router.get('/v2/deck/:corenum', function(req, res) {
+  connectionPromise.then(function(c) {
+                     connection = c;
+                     return r.table(config.deckTable)
+                         .orderBy({index : "groupNums"})
+                         .filter(
+                             r.row('group')('coreNum').eq(req.params.corenum))
                          .without('modifiedTime')
                          .coerceTo('array')
                          .run(connection);

@@ -31,7 +31,8 @@ r.connect({host : config.dbHost, port : config.dbPort})
         config.corewordsTable,
         config.headwordsTable,
         config.examplesTable,
-        config.deckTable
+        config.deckTable,
+        config.usersTable
       ].map(function(name) {
         if (tables.indexOf(name) < 0) {
           console.log("Creating " + name + ' table.');
