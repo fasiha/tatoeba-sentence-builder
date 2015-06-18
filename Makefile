@@ -14,12 +14,10 @@ ordered-words.json words-only.json:
 # words together, so it contains an array of arrays.
 
 data/JMdict_e data/examples.utf data/wwwjdic.csv:
-	sudo updatedb-myougiden -f
-	
 	mkdir -p data
 	cd data
 	
-	cp /usr/local/share/myougiden/JMdict_e.gz .
+	wget http://ftp.monash.edu.au/pub/nihongo/JMdict_e.gz
 	gunzip -f JMdict_e.gz
 	
 	wget http://tatoeba.org/files/downloads/wwwjdic.csv

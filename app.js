@@ -100,5 +100,7 @@ if (siteConfig.production) {
 app.set('port', siteConfig.webPort);
 
 var server = app.listen(app.get('port'), function() {
-  console.log('Express server listening on port ' + server.address().port);
+  console.log(
+      'Express server listening on port ' + server.address().port,
+      ' in ' + (siteConfig.production ? 'PRODUCTION!' : 'dev') + ' mode.');
 });

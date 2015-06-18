@@ -22,7 +22,7 @@
     "express-session": "latest",
     "lodash": "latest",
     "morgan": "latest",
-    "node-copy-paste": "latest",
+    "copy-paste": "latest",
     "passwordless": "latest",
     "passwordless-memorystore": "latest",
     "passwordless-rethinkdbstore": "^1.0.0",
