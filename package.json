@@ -30,6 +30,7 @@
     "request": "latest",
     "rethinkdb": "latest",
     "sendgrid": "^1.8.0",
-    "serve-favicon": "latest"
+    "serve-favicon": "latest",
+    "session-rethinkdb": "^1.0.5"
   }
 }

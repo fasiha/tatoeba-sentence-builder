@@ -8,6 +8,7 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var expressSession = require('express-session');
 var bodyParser = require('body-parser');
+var RDBStore = require('session-rethinkdb')(expressSession);
 
 var passwordless = require('passwordless');
 var RethinkDBStore = require('passwordless-rethinkdbstore');
@@ -32,7 +33,7 @@ passwordless.addDelivery(function(tokenToSend, uidToSend, recipient, callback) {
   var result = 'Hi! Follow this link to log in to your Unlocked account:\n\n' +
                url + '\n\nMuch love,\n〜Japanese Unlocked';
   console.log(result);
-  if (false) {
+  if (siteConfig.production) {
     sendgrid.send(
         {
           to : recipient,
@@ -68,8 +69,10 @@ app.use(bodyParser.urlencoded({extended : false}));
 app.use(cookieParser());
 app.use(expressSession({
   secret : siteConfig.sessionSecret,
-  resave : false,
-  saveUninitialized : false
+  resave : true,
+  saveUninitialized : false,
+  store : new RDBStore(
+      {servers : [{host : siteConfig.dbHost, port : siteConfig.dbPort}]})
 }));
 app.disable('x-powered-by');
 
