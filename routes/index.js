@@ -75,11 +75,13 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
 
         return r.db(config.dbName)
             .table(config.examplesTable)
-            .getAll([ req.params.headword, +req.params.sense ],
-                    {index : 'headwordsSense'})
-            .pluck('japanese', 'english', 'tags')
-            .distinct()
+            .between([ req.params.headword, +req.params.sense, 0 ],
+                     [ req.params.headword, +req.params.sense, 1e3 ],
+                     {index : 'headwordsSenseNumChars'})
+            .orderBy({index : 'headwordsSenseNumChars'})
             .slice(startEnd[0], startEnd[1])
+            .coerceTo('array')
+            .pluck('japanese', 'english', 'tags')
             .run(connection);
       })
       .then(function(results) {
