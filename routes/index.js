@@ -25,7 +25,11 @@ router.get('/logout',
 // })
 router.post('/sendtoken',
             passwordless.requestToken(function(user, delivery, callback) {
-              callback(null, user);
+              if (config.adminEmails.indexOf(user) >= 0) {
+                callback(null, user);
+              } else {
+                callback(null, null);
+              }
             }),
             function(req, res) { res.render('sent'); });
 
@@ -56,20 +60,26 @@ router.get('/v2/headwords/:words', function(req, res) {
       //.catch(console.error.bind(console, 'Error thrown!'));
 });
 
+var requestDefaultToStartStop = function(req, def) {
+  var page = req.query.page ? +req.query.page : null;
+  var start = page ? Math.max(0, page - 1) * def : 0;
+  var end = page ? Math.max(1, page) * def : def;
+  return [ start, end ];
+};
 router.get('/v2/sentences/:headword/:sense', function(req, res) {
   connectionPromise
       .then(function(c) {
         connection = c;
+        const defaultSize = 10;
+        var startEnd = requestDefaultToStartStop(req, defaultSize);
 
         return r.db(config.dbName)
             .table(config.examplesTable)
             .getAll([ req.params.headword, +req.params.sense ],
                     {index : 'headwordsSense'})
-            .limit(5)
             .pluck('japanese', 'english', 'tags')
-            // .distinct() does the trick too: converting getAll's stream to an
-            // array
-            .coerceTo('array')
+            .distinct()
+            .slice(startEnd[0], startEnd[1])
             .run(connection);
       })
       .then(function(results) {
@@ -81,11 +91,13 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
 router.get('/v2/corewords', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
+                     const defaultSize = 100;
+                     var startEnd = requestDefaultToStartStop(req, defaultSize);
 
                      return r.table(config.corewordsTable)
                          .orderBy({index : 'sourceNum'})
+                         .slice(startEnd[0], startEnd[1])
                          .without('id', 'modifiedTime')
-                         .limit(500)
                          .coerceTo('array')
                          .run(connection);
                    })

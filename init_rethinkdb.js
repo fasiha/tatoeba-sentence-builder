@@ -142,40 +142,41 @@ r.connect({host : config.dbHost, port : config.dbPort})
 
     .then(function(indexes) {
       var promises = [];
+      var mkIndex = function(name, fn, opt) {
+        if (indexes.indexOf(name) < 0) {
+          console.log("Creating `" + name + "` index for sentences.");
+          promises.push(r.db(config.dbName)
+              .table(config.examplesTable)
+              .indexCreate(name, fn, opt)
+              .run(connection));
+        } else {
+          console.log("Secondary index `sentenceLength` exists.");
+        }
+      };
+      mkIndex('numChars', r.row('numChars')('total'));
+      mkIndex('numKanji', r.row('numChars')('kanji'));
+      mkIndex('numKatakana', r.row('numChars')('katakana'));
+      mkIndex('numHiragana', r.row('numChars')('hiragana'));
 
-      if (indexes.indexOf("headwords") < 0) {
-        console.log("Creating `headwords` secondary index for sentences.");
-        promises.push(r.db(config.dbName)
-                          .table(config.examplesTable)
-                          .indexCreate("headwords", r.row("tags")("headword"),
-                                       {multi : true})
-                          .run(connection));
-      } else {
-        console.log("Secondary index `headwords` exists.");
-      }
+      mkIndex('headwords', r.row('tags')('headword'), {multi : true});
 
-      if (indexes.indexOf("headwordsSense") < 0) {
-        console.log("Creating `headwordsSense` compound secondary index.");
-        // The arbitrary function being used by indexCreate is building, for
-        // each document, an array of 2-tuples. The length of this array is
-        // equal to the number of tags (i.e., `obj.tags.length`). And its
-        // contents are ["headword", senseNumber]. In plain JS, this is
-        // equivalent to sentences.map(function(obj){return
-        // _.zip(_.pluck(obj.tags,"headword"), _.pluck(obj.tags, "sense"))}).
-        promises.push(
-            r.db(config.dbName)
-                .table(config.examplesTable)
-                .indexCreate("headwordsSense",
-                             function(obj) {
-                               return obj("tags").map(function(tag) {
-                                 return [ tag("headword"), tag("sense") ];
-                               });
-                             },
-                             {multi : true})
-                .run(connection));
-      } else {
-        console.log("Compound secondary index `headwordsSense` exists.");
-      }
+      // The arbitrary function is building, for each document, an array of
+      // 2-tuples. The length of this array is equal to the number of tags
+      // (i.e., `obj.tags.length`). And its contents are ["headword",
+      // senseNumber]. In plain JS, this is equivalent to
+      // sentences.map(function(obj){return _.zip(_.pluck(obj.tags,"headword"),
+      // _.pluck(obj.tags, "sense"))}).
+      mkIndex('headwordsSense', function(obj) {
+        return obj("tags")
+            .map(function(tag) { return [ tag("headword"), tag("sense") ]; });
+      }, {multi : true});
+
+      mkIndex('headwordsSenseNumChars', function(obj) {
+        return obj("tags").map(function(tag) {
+          return [ tag("headword"), tag("sense"), obj('numChars')('total') ];
+        });
+      }, {multi : true});
+
       return Promise.all(promises);
     })
 

@@ -3,21 +3,26 @@ var jsonPromisified = Promise.promisify(d3.json);
 
 var GLOB;
 
-var coreRequestStream = Kefir.constant('/v2/corewords');
+var coreStartStream = Kefir.constant(1);
+var moreCoreClickStream =
+    Kefir.fromEvents(document.querySelector('#more-core'), 'click');
 var coreResponseStream =
-    coreRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
+    coreStartStream.merge(moreCoreClickStream.scan((prev, next) => prev+1, 1))
+        .flatMap(corePage => Kefir.fromPromise(
+                     jsonPromisified(`/v2/corewords/?page=${corePage}`)));
 
 coreResponseStream.onValue(function(corewords) {
-  d3.select('#core-words')
-      .append('ol')
+  d3.select('#core-words ol')
       .selectAll('li.core-word')
-      .data(corewords)
+      .data(corewords,
+            obj => obj.source.details)  // FIXME won't work for non-Tono
       .enter()
       .append('li')
       .classed('core-word', true)
       .text(corewordObj =>
                 corewordObj.words.join('；') +
                 ` (${tonoDetailsCleanup(corewordObj.source.details)})`);
+  d3.select('#more-core').classed('no-display', false);
 });
 
 var deckRequestStream = Kefir.constant('/v2/deck');
@@ -34,7 +39,7 @@ deckResponseStream.onValue(function(deck) {
 });
 
 var coreClickStream =
-    Kefir.fromEvents(document.querySelector('#core-words'), 'click')
+    Kefir.fromEvents(document.querySelector('#core-words ol'), 'click')
         .map(clickEvent => {
           d3.selectAll('li.clicked.core-word').classed('clicked', false);
           clickEvent.target.className += ' clicked';
@@ -45,39 +50,42 @@ var dictResponseStream =
     coreClickStream.flatMap(coreword => Kefir.fromPromise(jsonPromisified(
                                 '/v2/headwords/' + coreword.words.join(','))));
 
-dictResponseStream.merge(coreClickStream.map(() => null)).combine(coreClickStream)
+Kefir.combine([dictResponseStream.merge(coreClickStream.map(() => null))],
+              [coreClickStream])
     .onValue(function([ entries, coreword ]) {
-  var words = coreword.words.join('・');
-  var dictText;
+      var words = coreword.words.join('・');
+      var dictText;
 
-  if (entries === null || entries.length === 0) {
-    dictText = entries === null ? 'Looking up ' + words
-                                : 'No dictionary entries found for ' + words;
-    d3.select('#dictionary').text(dictText);
-    d3.select('#sentences').text('');
-  } else {
-    var headwordList =
-        d3.select('#dictionary')
-            .append('ol')
-            .selectAll('li.dict-entry')
-            .data(entries)
+      if (entries === null || entries.length === 0) {
+        dictText = entries === null
+                       ? 'Looking up ' + words
+                       : 'No dictionary entries found for ' + words;
+        d3.select('#dictionary').text(dictText);
+        clearSentences();
+      } else {
+        var headwordList =
+            d3.select('#dictionary')
+                .append('ol')
+                .selectAll('li.dict-entry')
+                .data(entries)
+                .enter()
+                .append('li')
+                .classed('dict-entry', true)
+                .text(entry => entry.headwords.join('・') +
+                               (entry.readings.length
+                                    ? ('・・' + entry.readings.join('・'))
+                                    : ''));
+        headwordList.append('ol')
+            .selectAll('li.sense-entry')
+            .data(entry => entry.senses.map(
+                      (sense, i) =>
+                      { return {sense : sense, entry : entry, senseNum : i}; }))
             .enter()
             .append('li')
-            .classed('dict-entry', true)
-            .text(entry => entry.headwords.join('・') + (entry.readings.length
-                               ? ('・・' + entry.readings.join('・'))
-                               : ''));
-    headwordList.append('ol')
-        .selectAll('li.sense-entry')
-        .data(entry => entry.senses.map(
-                  (sense, i) =>
-                  { return {sense : sense, entry : entry, senseNum : i}; }))
-        .enter()
-        .append('li')
-        .classed('sense-entry', true)
-        .text(senseObj => senseObj.sense);
-  }
-});
+            .classed('sense-entry', true)
+            .text(senseObj => senseObj.sense);
+      }
+    });
 
 var entryClickStream =
     Kefir.fromEvents(document.querySelector('#dictionary'), 'click')
@@ -99,35 +107,49 @@ var entryClickStream =
                } else {
                  headword = entryOrSense.headwords[0];
                }
-               return {headword, senseNum};
+               return {headword, senseNum, page: 1};
              })
         .filter();
 
-var sentenceResponseStream = entryClickStream.flatMap(
-    ({headword, senseNum}) => Kefir.fromPromise(
-        jsonPromisified('/v2/sentences/' + headword + '/' + senseNum)));
+var moreSentencesClickStream =
+    Kefir.fromEvents(document.querySelector('#more-sentences'), 'click');
+var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream)
+                            .map(obj => {
+                              obj.page++;
+                              return obj;
+                            });
 
-sentenceResponseStream.merge(entryClickStream.map(() => null))
-    .combine(entryClickStream)
-    .onValue(function([sentences, {headword, senseNum}]) {
-  if (sentences === null) {
-    // clear sentence box
-    d3.select('#sentences').text('');
-  } else if (sentences.length === 0) {
-    d3.select('#sentences')
-        .text('No sentences found for headword “' + headword + "”, sense #" +
-              senseNum);
-  } else {
-    d3.select('#sentences')
-        .append('ol')
-        .selectAll('li.sentence')
-        .data(sentences)
-        .enter()
-        .append('li')
-        .classed('sentence', true)
-        .text(sentence => sentence.japanese + ' ' + sentence.english);
-  }
-});
+var sentenceResponseStream =
+    entryClickStream.merge(moreEntriesStream)
+        .flatMap(
+            ({headword, senseNum, page}) => Kefir.fromPromise(jsonPromisified(
+                `/v2/sentences/${headword}/${senseNum}/?page=${page}`)));
+
+function clearSentences() {
+  d3.select('#sentences ol').selectAll('li').remove();
+  d3.select('#more-sentences').classed('no-display', true);
+}
+Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
+              [entryClickStream])
+    .onValue(function([ sentences, {headword, senseNum} ]) {
+      if (sentences === null) {
+        clearSentences();
+      } else if (sentences.length === 0) {
+        d3.select('#sentences ol')
+            .append('li')
+            .text('No sentences found for headword “' + headword +
+                  "”, sense #" + senseNum);
+      } else {
+        d3.select('#sentences ol')
+            .selectAll('li.sentence')
+            .data(sentences, obj => obj.japanese)
+            .enter()
+            .append('li')
+            .classed('sentence', true)
+            .text(sentence => sentence.japanese + ' ' + sentence.english);
+        d3.select('#more-sentences').classed('no-display', false);
+      }
+    });
 
 function findPrePostfix(a, b) {
   var minLength = Math.min(a.length, b.length);

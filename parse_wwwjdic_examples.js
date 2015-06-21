@@ -1,6 +1,14 @@
 "use strict";
 var utils = require('./nodeUtilities.js');
 var _ = require('lodash');
+var XRegExp = require('XRegExp').XRegExp;
+
+var regexps = {
+  kanji : XRegExp('\\p{Han}', 'g'),
+  katakana : XRegExp('\\p{Katakana}', 'g'),
+  hiragana : XRegExp('\\p{Hiragana}', 'g'),
+  total : /./g
+};
 
 var tags = {};
 var goodTags = {};
@@ -25,12 +33,18 @@ var sentences = utils.read('data/wwwjdic.csv')
 
                       var o = {};
                       o.japanese = fields[2];
+                      o.numChars = _.mapValues(regexps, function(re) {
+                        var list = o.japanese.match(re);
+                        return list ? list.length : 0;
+                      });
 
                       o.english = fields[3];
 
                       o.source = {
                         num : lineNumber,
-                        name : "Tatoeba corpus"
+                        name : "Tatoeba corpus",
+                        num1 : +fields[0],
+                        num2 : +fields[1]
                       };
 
                       o.tags = fields[4].split(' ').map(function(code) {
@@ -92,15 +106,11 @@ _.keys(tags).forEach(function(headword) {
 // Time-tag
 sentences = utils.withDate(sentences);
 
-// Write normalized JSON/LDJSON files.
-var normalizedSentences =
-    sentences.map(function(obj) { return _.omit(obj, 'tags'); });
-utils.writeJSON('wwwjdic-sentences.json', normalizedSentences);
-utils.writeJSON('wwwjdic-tags.json', tags);
-utils.writeJSON('wwwjdic-good-tags.json', goodTags);
-
+// Write normalized LDJSON files
 utils.writeLineDelimitedJSON('data-static/wwwjdic-sentences.ldjson',
-                            normalizedSentences);
+                             sentences.map(function(obj) {
+                               return _.omit(obj, 'tags');
+                             }));
 utils.writeLineDelimitedJSON('data-static/wwwjdic-tags.ldjson', tags);
 utils.writeLineDelimitedJSON('data-static/wwwjdic-good-tags.ldjson', goodTags);
 

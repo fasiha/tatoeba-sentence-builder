@@ -57,6 +57,10 @@ html, body {
   background-color: #ddd;
   font-weight: bold;
 }
+
+.no-display {
+  display: none;
+}
     </style>
     <script src="d3.v3.min.js" charset="utf-8"></script>
     <script src="lodash.min.js" charset="utf-8"></script>
@@ -69,12 +73,18 @@ html, body {
       <h1>Sentence Builder</h1>
     </div>
     <div class="container">
-      <div class="flexible" id="core-words"></div>
+      <div class="flexible" id="core-words">
+        <ol></ol>
+        <button id="more-core" class="no-display">+</button>
+      </div>
       <div class="flexible" id="dictionary"></div>
-      <div class="flexible" id="sentences"></div>
+      <div class="flexible" id="sentences">
+        <ol></ol>
+        <button id="more-sentences" class="no-display">+</button>
+      </div>
       <div class="flexible" id="deck"></div>
     </div>
 
-    <script charset="utf-8" src="deckbuilder.compat.js"></script>
+    <script charset="utf-8" src="deckbuilder.js"></script>
   </body>
 </html>
