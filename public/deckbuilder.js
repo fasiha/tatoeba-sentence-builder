@@ -29,11 +29,11 @@ var deckRequestStream = Kefir.constant('/v2/deck');
 var deckResponseStream =
     deckRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
 deckResponseStream.onValue(function(deck) {
-  d3.select('#deck')
-      .selectAll('p.deck-sentence')
+  d3.select('#deck ol')
+      .selectAll('li.deck-sentence')
       .data(deck)
       .enter()
-      .append('p')
+      .append('li')
       .classed('deck-sentence', true)
       .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
 });
@@ -175,11 +175,34 @@ function findPrePostfix(a, b) {
   return {
     a : a.substring(preLen, a.length - postLen),
     b : b.substring(preLen, b.length - postLen),
-    prefix : a.substring(0, preLen),
-    postfix : a.substring(a.length - postLen, a.length)
+    pre : a.substring(0, preLen),
+    post : a.substring(a.length - postLen, a.length)
   };
 }
 
 function tonoDetailsCleanup(details) {
   return details.split('\n')[0].replace(/^[0-9]+ /, '');
 }
+function wordReadingToRuby(word, reading) {
+  var strip = findPrePostfix(word, reading);
+  return strip.pre +
+         (strip.a.length
+              ? "<ruby>" + strip.a + "<rp>(</rp><rt>" +
+                    (strip.b.length ? strip.b : _.repeat("?", strip.a.length)) +
+                    "</rt><rp>)</rp></ruby>"
+              : "") +
+         strip.post;
+}
+
+
+const hiraString =
+    "ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ";
+const kataString =
+    "ァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモャヤュユョヨラリルレロヮワヰヱヲンヴヵヶ";
+
+var kataToHiraTable = _.object(kataString.split(''), hiraString.split(''));
+var kataToHira = str =>
+    str.split('')
+        .map(c => kataToHiraTable[c] || c)
+        .join('');
+
