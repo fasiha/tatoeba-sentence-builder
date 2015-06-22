@@ -1,3 +1,5 @@
+"use strict";
+var ve = require('../ve');
 var debug = require('debug')('routes');
 var express = require('express');
 var router = express.Router();
@@ -70,7 +72,7 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
   connectionPromise
       .then(function(c) {
         connection = c;
-        const defaultSize = 10;
+        var defaultSize = 10;
         var startEnd = requestDefaultToStartStop(req, defaultSize);
 
         return r.db(config.dbName)
@@ -93,7 +95,7 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
 router.get('/v2/corewords', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
-                     const defaultSize = 100;
+                     var defaultSize = 100;
                      var startEnd = requestDefaultToStartStop(req, defaultSize);
 
                      return r.table(config.corewordsTable)
@@ -135,6 +137,23 @@ router.get('/v2/deck/:corenum', function(req, res) {
                          .coerceTo('array')
                          .run(connection);
                    })
+      .then(function(results) {
+        res.json(results);
+        return 1;
+      });
+});
+
+router.post('/v2/deck', function(req, res) {
+  connectionPromise.then(function(c) {
+                     connection = c;
+
+                     return ve(req.body.japanese);
+                   })
+      .then(function(veResult) {
+        var obj = req.body;
+        obj.ve = veResult;
+        return r.table(config.deckTable).insert(obj).run(connection);
+      })
       .then(function(results) {
         res.json(results);
         return 1;

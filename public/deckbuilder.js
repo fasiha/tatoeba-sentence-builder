@@ -1,8 +1,19 @@
 "use strict";
-var jsonPromisified = Promise.promisify(d3.json);
-
+// Debug variable that shouldn't contain anything
 var GLOB;
 
+// We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
+var jsonPromisified = Promise.promisify(d3.json);
+var postPromisified = function(url, obj) {
+  return fetch(url, {
+    method : 'post',
+    headers :
+        {Accept : 'application/json', 'Content-Type' : 'application/json'},
+    body : _.isString(obj) ? obj : JSON.stringify(obj)
+  });
+};
+
+// Pane 1: CORE WORDS
 var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream =
     Kefir.fromEvents(document.querySelector('#more-core'), 'click');
@@ -25,19 +36,7 @@ coreResponseStream.onValue(function(corewords) {
   d3.select('#more-core').classed('no-display', false);
 });
 
-var deckRequestStream = Kefir.constant('/v2/deck');
-var deckResponseStream =
-    deckRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
-deckResponseStream.onValue(function(deck) {
-  d3.select('#deck ol')
-      .selectAll('li.deck-sentence')
-      .data(deck)
-      .enter()
-      .append('li')
-      .classed('deck-sentence', true)
-      .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
-});
-
+// Pane 2: DICTIONARY ENTRIES CORRESPONDING TO Pane 1 (CORE WORD) CLICKS
 var coreClickStream =
     Kefir.fromEvents(document.querySelector('#core-words ol'), 'click')
         .map(clickEvent => {
@@ -87,6 +86,12 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(() => null))],
       }
     });
 
+// Pane 3: EXAMPLE SENTENCES BASED ON Pane 2 (DICTIONARY) CLICKS
+function clearSentences() {
+  d3.select('#sentences ol').selectAll('li').remove();
+  d3.select('#more-sentences').classed('no-display', true);
+}
+
 var entryClickStream =
     Kefir.fromEvents(document.querySelector('#dictionary'), 'click')
         .map(clickEvent =>
@@ -111,6 +116,7 @@ var entryClickStream =
              })
         .filter();
 
+// Pagination of Pane 3 (button requesting more sentences)
 var moreSentencesClickStream =
     Kefir.fromEvents(document.querySelector('#more-sentences'), 'click');
 var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream)
@@ -125,10 +131,6 @@ var sentenceResponseStream =
             ({headword, senseNum, page}) => Kefir.fromPromise(jsonPromisified(
                 `/v2/sentences/${headword}/${senseNum}/?page=${page}`)));
 
-function clearSentences() {
-  d3.select('#sentences ol').selectAll('li').remove();
-  d3.select('#more-sentences').classed('no-display', true);
-}
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
               [entryClickStream])
     .onValue(function([ sentences, {headword, senseNum} ]) {
@@ -140,17 +142,57 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
             .text('No sentences found for headword “' + headword +
                   "”, sense #" + senseNum);
       } else {
-        d3.select('#sentences ol')
-            .selectAll('li.sentence')
-            .data(sentences, obj => obj.japanese)
-            .enter()
-            .append('li')
-            .classed('sentence', true)
-            .text(sentence => sentence.japanese + ' ' + sentence.english);
+        var sentences =
+            d3.select('#sentences ol')
+                .selectAll('li.sentence')
+                .data(sentences, obj => obj.japanese)
+                .enter()
+                .append('li')
+                .classed('sentence', true)
+                .text(sentence => sentence.japanese + ' ' + sentence.english);
+
         d3.select('#more-sentences').classed('no-display', false);
+
+        sentences.append('button').classed('add-to-deck', true).text('✓');
       }
     });
 
+// Pane 4: DECK SENTENCES
+var deckRequestStream = Kefir.constant('/v2/deck');
+var deckResponseStream =
+    deckRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
+deckResponseStream.onValue(function(deck) {
+  d3.select('#deck ol')
+      .selectAll('li.deck-sentence')
+      .data(deck)
+      .enter()
+      .append('li')
+      .classed('deck-sentence', true)
+      .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
+});
+
+var sentenceAddClickStream =
+    Kefir.fromEvents(document.querySelector('#sentences'), 'click')
+        .filter(ev => ev.target.tagName.toLowerCase() === 'button' &&
+                      ev.target.className.indexOf('add-to-deck') >= 0)
+        .map(ev => ev.target.__data__).log();
+
+var deckSubmitStream =
+    Kefir.combine([sentenceAddClickStream],
+                  [ entryClickStream, coreClickStream ])
+        .flatMap(([ sentenceObj, {headword, senseNum}, coreword ]) => {
+          sentenceObj.ve = [];
+          sentenceObj.group = {
+            coreNum : coreword.source.num,
+            num : -1, headword, senseNum
+          };
+          sentenceObj.globalNum = -1;
+          sentenceObj.modifiedTime = new Date();
+
+          return Kefir.fromPromise(postPromisified('/v2/deck', sentenceObj));
+        }).log();
+
+// FURIGANA UTILITIES
 function findPrePostfix(a, b) {
   var minLength = Math.min(a.length, b.length);
 
