@@ -130,11 +130,12 @@ router.get('/v2/deck/:corenum', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      return r.table(config.deckTable)
-                         .orderBy({index : "groupNums"})
-                         .filter(
-                             r.row('group')('coreNum').eq(req.params.corenum))
-                         .without('modifiedTime')
+                         .between([ +req.params.corenum, r.minval ],
+                                  [ +req.params.corenum, r.maxval ],
+                                  {index : "groupNums"})
+                         .orderBy({index : 'groupNums'})
                          .coerceTo('array')
+                         .without('modifiedTime', 'id')
                          .run(connection);
                    })
       .then(function(results) {

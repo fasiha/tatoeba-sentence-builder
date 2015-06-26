@@ -12,6 +12,11 @@ utils.readJSON('core5k.json')
         details : s
       };
     });
+// Prepend a fake entry for pre-core words.
+coreTuples = [{
+               words : ['(pre-core)'],
+               source : {name : 'self', num : -1, details : 'pre-core'}
+             }].concat(coreTuples);
 
 // To RethinkDB: get all sentences from it, and add the sentences that aren't
 // already there (only look at Japanese & English parts of the sentence). For

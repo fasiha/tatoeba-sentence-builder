@@ -56,17 +56,6 @@ r.connect({host : config.dbHost, port : config.dbPort})
 
     .then(function(indexes) {
       var p = [];
-      if (indexes.indexOf("groupCoreNum") < 0) {
-        console.log("Creating `groupCoreNum` index on deck table.");
-        p.push(r.db(config.dbName)
-                   .table(config.deckTable)
-                   .indexCreate("groupCoreNum", r.row("group")("coreNum"),
-                                {multi : true})
-                   .run(connection));
-      } else {
-        console.log("2ndary index `groupCoreNum` already exists: deck table.");
-      }
-
       if (indexes.indexOf("groupNums") < 0) {
         console.log("Creating `groupNums` index on deck table.");
         p.push(r.db(config.dbName)
@@ -78,16 +67,6 @@ r.connect({host : config.dbHost, port : config.dbPort})
       } else {
         console.log(
             "Secondary index `groupNums` already exists in deck table.");
-      }
-
-      if (indexes.indexOf("groupNum") < 0) {
-        console.log("Creating `groupNum` index on deck table.");
-        p.push(r.db(config.dbName)
-                   .table(config.deckTable)
-                   .indexCreate("groupNum", r.row('group')('num'))
-                   .run(connection));
-      } else {
-        console.log("Secondary index `groupNum` already exists in deck table.");
       }
       return Promise.all(p);
     })
@@ -150,7 +129,7 @@ r.connect({host : config.dbHost, port : config.dbPort})
               .indexCreate(name, fn, opt)
               .run(connection));
         } else {
-          console.log("Secondary index `sentenceLength` exists.");
+          console.log("Secondary index `" + name + "` exists.");
         }
       };
       mkIndex('numChars', r.row('numChars')('total'));

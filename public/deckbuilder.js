@@ -26,7 +26,7 @@ coreResponseStream.onValue(function(corewords) {
   d3.select('#core-words ol')
       .selectAll('li.core-word')
       .data(corewords,
-            obj => obj.source.details)  // FIXME won't work for non-Tono
+            obj => obj.source.details || "")  // FIXME won't work for non-Tono
       .enter()
       .append('li')
       .classed('core-word', true)
@@ -160,22 +160,29 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
 // Pane 4: DECK SENTENCES
 var deckRequestStream = Kefir.constant('/v2/deck');
 var deckResponseStream =
-    deckRequestStream.flatMap(url => Kefir.fromPromise(jsonPromisified(url)));
-deckResponseStream.onValue(function(deck) {
-  d3.select('#deck ol')
-      .selectAll('li.deck-sentence')
-      .data(deck)
-      .enter()
-      .append('li')
-      .classed('deck-sentence', true)
-      .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
-});
+    coreClickStream.flatMap(corewordObj => Kefir.fromPromise(jsonPromisified(
+                                '/v2/deck/' + corewordObj.source.num)));
+deckResponseStream.merge(coreClickStream.map(() => null))
+    .onValue(function(deck, corewordObj) {
+      if (deck === null) {
+        d3.select('#deck ol').html('');
+      } else {
+        d3.select('#deck ol')
+            .selectAll('li.deck-sentence')
+            .data(deck)
+            .enter()
+            .append('li')
+            .classed('deck-sentence', true)
+            .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
+      }
+    });
 
 var sentenceAddClickStream =
     Kefir.fromEvents(document.querySelector('#sentences'), 'click')
         .filter(ev => ev.target.tagName.toLowerCase() === 'button' &&
                       ev.target.className.indexOf('add-to-deck') >= 0)
-        .map(ev => ev.target.__data__).log();
+        .map(ev => ev.target.__data__)
+        .log();
 
 var deckSubmitStream =
     Kefir.combine([sentenceAddClickStream],
