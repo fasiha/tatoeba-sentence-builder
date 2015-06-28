@@ -135,7 +135,7 @@ router.get('/v2/deck/:corenum', function(req, res) {
                                   {index : "groupNums"})
                          .orderBy({index : 'groupNums'})
                          .coerceTo('array')
-                         .without('modifiedTime', 'id')
+                         .without('modifiedTime')  // send ID in case of edits
                          .run(connection);
                    })
       .then(function(results) {
@@ -144,16 +144,57 @@ router.get('/v2/deck/:corenum', function(req, res) {
       });
 });
 
+// New sentence from example sentences
 router.post('/v2/deck', function(req, res) {
-  connectionPromise.then(function(c) {
-                     connection = c;
-
-                     return ve(req.body.japanese);
-                   })
-      .then(function(veResult) {
+  Promise.all([ connectionPromise, ve(req.body.japanese) ])
+      .then(function(connVe) {
+        connection = connVe[0];
+        var veResult = connVe[1];
         var obj = req.body;
+        if ('id' in obj) {
+          obj = _.omit(obj, 'id');  // Problematic? Was causing node to hang?
+        }
         obj.ve = veResult;
         return r.table(config.deckTable).insert(obj).run(connection);
+      })
+      .then(function(results) {
+        res.json(results);
+        return 1;
+      });
+});
+
+// Edited sentence
+router.put('/v2/deck/:id', function(req, res) {
+  var obj = req.body;
+  if (req.params.id !== obj.id) {
+    res.status(404);
+    res.json({err : 'ID in body object did not match ID in URL'});
+    return;
+  }
+  Promise.all([connectionPromise, ve(req.body.japanese)])
+      .then(function(connVe) {
+        connection = connVe[0];
+        var veResult = connVe[1];
+        // obj.ve = veResult;
+        return r.table(config.deckTable)
+            .get(obj.id)
+            .update(obj)
+            .run(connection);
+      })
+      .then(function(results) {
+        res.json(results);
+        return 1;
+      });
+});
+
+router.delete('/v2/deck/:id', function(req, res) {
+  connectionPromise
+      .then(function(c) {
+        connection = c;
+        return r.table(config.deckTable)
+            .get(req.params.id)
+            .delete()
+            .run(connection);
       })
       .then(function(results) {
         res.json(results);

@@ -61,16 +61,28 @@ html, body {
 .no-display {
   display: none;
 }
+
+textarea {
+  width: 100%;
+}
+
     </style>
+    <link href="stylesheets/ruby.css" rel="stylesheet" title="Ruby style">
     <script src="d3.v3.min.js" charset="utf-8"></script>
     <script src="lodash.min.js" charset="utf-8"></script>
-    <!--<script src="xregexp-all.js" charset="utf-8"></script>-->
+    <script src="xregexp-all.js" charset="utf-8"></script>
     <script src="bluebird.min.js" charset="utf-8"></script>
     <script src="kefir.js" charset="utf-8"></script>
     <script src="bower_components/fetch/fetch.js" charset="utf-8"></script>
 
   </head>
-  <body>
+  <!-- see: http://www.useragentman.com/blog/2010/10/29/cross-browser-html5-ruby-annotations-using-css/ -->
+  <!--[if lt IE 7 ]> <body class="ie6"> <![endif]-->
+  <!--[if IE 7 ]>    <body class="ie7"> <![endif]-->
+  <!--[if IE 8 ]>    <body class="ie8"> <![endif]-->
+  <!--[if IE 9 ]>    <body class="ie9"> <![endif]-->
+  <!--[if (gt IE 9)]><body class="modern"> <![endif]-->
+  <!--[!(IE)]><!-->  <body class="notIE modern"> <!--<![endif]-->
     <div class="top">
       <h1>Sentence Builder</h1>
     </div>
@@ -86,6 +98,7 @@ html, body {
       </div>
       <div class="flexible" id="deck">
         <ol></ol>
+        <button id="new-sentence" class="no-display">+</button>
       </div>
     </div>
 

@@ -2,23 +2,32 @@
 // Debug variable that shouldn't contain anything
 var GLOB;
 
+// SENTENCE-RELATED UTILITIES
+function tonoDetailsCleanup(details) {
+  return details.split('\n')[0].replace(/^[0-9]+ /, '');
+}
+var hanRegexp = XRegExp('\\p{Han}');
+var hasKanji = s => s.search(hanRegexp) >= 0;
+
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
 var jsonPromisified = Promise.promisify(d3.json);
-var postPromisified = function(url, obj) {
-  return fetch(url, {
-    method : 'post',
-    headers :
-        {Accept : 'application/json', 'Content-Type' : 'application/json'},
-    body : _.isString(obj) ? obj : JSON.stringify(obj)
-  });
-};
+var makePromisified = method =>
+    ((url, obj) => fetch(url, {
+       method : method,
+       headers :
+           {Accept : 'application/json', 'Content-Type' : 'application/json'},
+       body : _.isString(obj) ? obj : JSON.stringify(obj)
+     }));
+var postPromisified = makePromisified('post');
+var putPromisified = makePromisified('put');
+var deletePromisified = makePromisified('delete');
 
 // Pane 1: CORE WORDS
 var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream =
     Kefir.fromEvents(document.querySelector('#more-core'), 'click');
 var coreResponseStream =
-    coreStartStream.merge(moreCoreClickStream.scan((prev, next) => prev+1, 1))
+    coreStartStream.merge(moreCoreClickStream.scan((prev, next) => prev + 1, 1))
         .flatMap(corePage => Kefir.fromPromise(
                      jsonPromisified(`/v2/corewords/?page=${corePage}`)));
 
@@ -52,39 +61,38 @@ var dictResponseStream =
 Kefir.combine([dictResponseStream.merge(coreClickStream.map(() => null))],
               [coreClickStream])
     .onValue(function([ entries, coreword ]) {
-      var words = coreword.words.join('・');
-      var dictText;
+  var words = coreword.words.join('・');
+  var dictText;
 
-      if (entries === null || entries.length === 0) {
-        dictText = entries === null
-                       ? 'Looking up ' + words
-                       : 'No dictionary entries found for ' + words;
-        d3.select('#dictionary').text(dictText);
-        clearSentences();
-      } else {
-        var headwordList =
-            d3.select('#dictionary')
-                .append('ol')
-                .selectAll('li.dict-entry')
-                .data(entries)
-                .enter()
-                .append('li')
-                .classed('dict-entry', true)
-                .text(entry => entry.headwords.join('・') +
-                               (entry.readings.length
-                                    ? ('・・' + entry.readings.join('・'))
-                                    : ''));
-        headwordList.append('ol')
-            .selectAll('li.sense-entry')
-            .data(entry => entry.senses.map(
-                      (sense, i) =>
-                      { return {sense : sense, entry : entry, senseNum : i}; }))
+  if (entries === null || entries.length === 0) {
+    dictText = entries === null ? 'Looking up ' + words
+                                : 'No dictionary entries found for ' + words;
+    d3.select('#dictionary').text(dictText);
+    clearSentences();
+  } else {
+    var headwordList =
+        d3.select('#dictionary')
+            .append('ol')
+            .selectAll('li.dict-entry')
+            .data(entries)
             .enter()
             .append('li')
-            .classed('sense-entry', true)
-            .text(senseObj => senseObj.sense);
-      }
-    });
+            .classed('dict-entry', true)
+            .text(entry => entry.headwords.join('・') +
+                           (entry.readings.length
+                                ? ('・・' + entry.readings.join('・'))
+                                : ''));
+    headwordList.append('ol')
+        .selectAll('li.sense-entry')
+        .data(entry => entry.senses.map(
+                  (sense, i) =>
+                  { return {sense : sense, entry : entry, senseNum : i}; }))
+        .enter()
+        .append('li')
+        .classed('sense-entry', true)
+        .text(senseObj => senseObj.sense);
+  }
+});
 
 // Pane 3: EXAMPLE SENTENCES BASED ON Pane 2 (DICTIONARY) CLICKS
 function clearSentences() {
@@ -97,7 +105,7 @@ var entryClickStream =
         .map(clickEvent =>
              {
                var entryOrSense = clickEvent.target.__data__;
-               if (!entryOrSense) { // No data!
+               if (!entryOrSense) {  // No data!
                  return null;
                }
                d3.selectAll('li.clicked.dict-entry').classed('clicked', false);
@@ -112,7 +120,7 @@ var entryClickStream =
                } else {
                  headword = entryOrSense.headwords[0];
                }
-               return {headword, senseNum, page: 1};
+               return {headword, senseNum, page : 1};
              })
         .filter();
 
@@ -134,60 +142,44 @@ var sentenceResponseStream =
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
               [entryClickStream])
     .onValue(function([ sentences, {headword, senseNum} ]) {
-      if (sentences === null) {
-        clearSentences();
-      } else if (sentences.length === 0) {
+  if (sentences === null) {
+    clearSentences();
+  } else if (sentences.length === 0) {
+    d3.select('#sentences ol')
+        .append('li')
+        .text('No sentences found for headword “' + headword + "”, sense #" +
+              senseNum);
+  } else {
+    var sentences =
         d3.select('#sentences ol')
-            .append('li')
-            .text('No sentences found for headword “' + headword +
-                  "”, sense #" + senseNum);
-      } else {
-        var sentences =
-            d3.select('#sentences ol')
-                .selectAll('li.sentence')
-                .data(sentences, obj => obj.japanese)
-                .enter()
-                .append('li')
-                .classed('sentence', true)
-                .text(sentence => sentence.japanese + ' ' + sentence.english);
-
-        d3.select('#more-sentences').classed('no-display', false);
-
-        sentences.append('button').classed('add-to-deck', true).text('✓');
-      }
-    });
-
-// Pane 4: DECK SENTENCES
-var deckRequestStream = Kefir.constant('/v2/deck');
-var deckResponseStream =
-    coreClickStream.flatMap(corewordObj => Kefir.fromPromise(jsonPromisified(
-                                '/v2/deck/' + corewordObj.source.num)));
-deckResponseStream.merge(coreClickStream.map(() => null))
-    .onValue(function(deck, corewordObj) {
-      if (deck === null) {
-        d3.select('#deck ol').html('');
-      } else {
-        d3.select('#deck ol')
-            .selectAll('li.deck-sentence')
-            .data(deck)
+            .selectAll('li.sentence')
+            .data(sentences, obj => obj.japanese)
             .enter()
             .append('li')
-            .classed('deck-sentence', true)
-            .text(deckObj => `${deckObj.japanese} ${deckObj.english}`);
-      }
-    });
+            .classed('sentence', true)
+            .text(sentence => sentence.japanese + ' ' + sentence.english);
 
-var sentenceAddClickStream =
+    d3.select('#more-sentences').classed('no-display', false);
+
+    sentences.append('button').classed('add-to-deck', true).text('✓');
+  }
+});
+
+// Pane 4: DECK SENTENCES
+var exampleSentenceAddClickStream =
     Kefir.fromEvents(document.querySelector('#sentences'), 'click')
         .filter(ev => ev.target.tagName.toLowerCase() === 'button' &&
                       ev.target.className.indexOf('add-to-deck') >= 0)
-        .map(ev => ev.target.__data__)
-        .log();
+        .map(ev => ev.target.__data__);
 
-var deckSubmitStream =
-    Kefir.combine([sentenceAddClickStream],
+var exampleSentenceDeckSubmitStream =
+    Kefir.combine([exampleSentenceAddClickStream],
                   [ entryClickStream, coreClickStream ])
         .flatMap(([ sentenceObj, {headword, senseNum}, coreword ]) => {
+          // Server shouldn't send sentence document's ID but be careful. This
+          // is a new sentence, NOT an edit.
+          sentenceObj = _.omit(sentenceObj, 'id');
+          // Add parameters here so the server doesn't have to.
           sentenceObj.ve = [];
           sentenceObj.group = {
             coreNum : coreword.source.num,
@@ -197,7 +189,109 @@ var deckSubmitStream =
           sentenceObj.modifiedTime = new Date();
 
           return Kefir.fromPromise(postPromisified('/v2/deck', sentenceObj));
-        }).log();
+        });
+
+var deckClickStream =
+    Kefir.fromEvents(document.querySelector('#deck'), 'click');
+
+var deckButtonClickStream =
+    deckClickStream.filter(ev => ev.target.tagName.toLowerCase() === 'button');
+
+var deckEdititedStream =
+    deckButtonClickStream.filter(ev => ev.target.className.indexOf(
+                                           'done-editing') >= 0)
+        .map(ev => d3.select(ev.target));
+deckEdititedStream.onValue(selection => {
+                    var button = selection.text();
+                    var deckObj = selection.node().parentNode.__data__;
+
+                    if (button === 'Submit') {
+                      var parentTag = d3.select(
+                          selection.node().parentNode);  // FIXME SUPER-FRAGILE!
+                      deckObj.english =
+                          parentTag.select('textarea.edit-english')
+                              .property('value');
+                      deckObj.japanese =
+                          parentTag.select('textarea.edit-japanese')
+                              .property('value');
+
+                      var furigana =
+                          parentTag.selectAll('input.edit-furigana')[0].map(
+                              node => node.value);
+                      var kanjiLemmas =
+                          deckObj.ve.filter(veObj => hasKanji(veObj.word));
+                      kanjiLemmas.forEach((ve, idx) => ve.reading =
+                                              furigana[idx]);
+                      return Kefir.fromPromise(
+                          putPromisified('/v2/deck/' + deckObj.id, deckObj));
+                    } else if (button === 'Cancel') {
+                      return selection;
+                    } else if (button === 'Delete') {
+                      return Kefir.fromPromise(
+                          deletePromisified('/v2/deck/' + deckObj.id));
+                    }
+                    return selection;
+
+                  }).log();
+
+var deckSentenceEditClickStream =
+    deckButtonClickStream.filter(ev => ev.target.className.indexOf(
+                                           'edit-deck') >= 0)
+        .map(ev => d3.select(ev.target.parentNode));  // FIXME FRAGILE!
+deckSentenceEditClickStream.onValue(selection => {
+  selection.select('button.edit-deck').classed('no-display', true);
+  var deckObj = selection.datum();
+  var japanese = selection.append('textarea')
+                     .classed('edit-japanese', true)
+                     .text(deckObj.japanese);
+  var english = selection.append('textarea')
+                    .classed('edit-english', true)
+                    .text(deckObj.english);
+  var furigana = selection.append('ul')
+                     .selectAll('li.furigana-list')
+                     .data(deckObj.ve.filter(o => hasKanji(o.word)))
+                     .enter()
+                     .append('li')
+                     .classed('furigana-list', true)
+                     .text(ve => ve.word + '：');
+  var furiganaCorrection = furigana.append('input')
+                               .classed('edit-furigana', true)
+                               .attr({type : 'text'})
+                               .attr('value', ve => ve.reading);
+  selection.append('button').text('Submit').classed('done-editing',true);
+  selection.append('button').text('Cancel').classed('done-editing',true);
+  selection.append('button').text('Delete').classed('done-editing',true);
+  return selection;
+});
+
+var deckRequestStream = Kefir.merge([
+  coreClickStream,
+  coreClickStream.sampledBy(exampleSentenceDeckSubmitStream),
+  coreClickStream.sampledBy(deckEdititedStream)
+]).log();
+var deckResponseStream =
+    deckRequestStream.flatMap(corewordObj => Kefir.fromPromise(jsonPromisified(
+                                  '/v2/deck/' + corewordObj.source.num)));
+deckResponseStream.merge(coreClickStream.map(() => null))
+    .onValue(function(deck, corewordObj) {
+      if (deck === null) {
+        d3.select('#deck ol').html('');
+      } else {
+        var data = d3.select('#deck ol')
+                            .selectAll('li.deck-sentence')
+                            .data(deck, deckObj => deckObj.japanese);
+        data.exit().remove();
+        var sentences = data.enter()
+                            .append('li')
+                            .classed('deck-sentence', true)
+                            .html(deckObj => {
+                              var furigana =
+                                  veArrayToFuriganaMarkup(deckObj.ve);
+                              return `${furigana} ${deckObj.english}`
+                            });
+        sentences.append('button').classed('edit-deck', true).text('?');
+      }
+    });
 
 // FURIGANA UTILITIES
 function findPrePostfix(a, b) {
@@ -228,10 +322,15 @@ function findPrePostfix(a, b) {
     post : a.substring(a.length - postLen, a.length)
   };
 }
-
-function tonoDetailsCleanup(details) {
-  return details.split('\n')[0].replace(/^[0-9]+ /, '');
+function veArrayToFuriganaMarkup(ves) {
+  return ves.map(v => {
+              if (v.word.search(hanRegexp) < 0) {
+                return v.word;
+              }
+              return wordReadingToRuby(v.word, kataToHira(v.reading));
+            }).join('');
 }
+
 function wordReadingToRuby(word, reading) {
   var strip = findPrePostfix(word, reading);
   return strip.pre +
@@ -243,7 +342,6 @@ function wordReadingToRuby(word, reading) {
          strip.post;
 }
 
-
 const hiraString =
     "ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ";
 const kataString =
@@ -251,7 +349,5 @@ const kataString =
 
 var kataToHiraTable = _.object(kataString.split(''), hiraString.split(''));
 var kataToHira = str =>
-    str.split('')
-        .map(c => kataToHiraTable[c] || c)
-        .join('');
+    str.split('').map(c => kataToHiraTable[c] || c).join('');
 
