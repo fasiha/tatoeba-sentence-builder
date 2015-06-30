@@ -66,6 +66,7 @@ coreResponseStream.onValue(function(corewords) {
 
 var coreClickStream =
     Kefir.fromEvents(document.querySelector('#core-words ol'), 'click')
+        .filter(ev => ev.target.tagName.toLowerCase() === 'li')
         .map(clickEvent => {
           d3.selectAll('li.clicked.core-word').classed('clicked', false);
           clickEvent.target.className += ' clicked';
@@ -125,6 +126,7 @@ function clearSentences() {
 
 var entryClickStream =
     Kefir.fromEvents(document.querySelector('#dictionary'), 'click')
+        .filter(ev => ev.target.tagName.toLowerCase() === 'li')
         .map(clickEvent =>
              {
                var entryOrSense = clickEvent.target.__data__;
