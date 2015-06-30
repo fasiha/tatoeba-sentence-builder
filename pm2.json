@@ -1,0 +1,14 @@
+{
+  "apps" : [
+    {
+      "name" : "sentence-builder",
+      "script" : "app.js",
+      "args" : [],
+      "watch" : true,
+      "node_args" : "",
+      "merge_logs" : true,
+      "cwd" : "/this/is/a/path/to/start/script",
+      "env" : {"NODE_ENV" : "production"}
+    }
+  ]
+}
