@@ -143,15 +143,30 @@ router.get('/v2/deck/:corenum', passwordless.restricted(), function(req, res) {
 
 // New sentence from example sentences
 router.post('/v2/deck', passwordless.restricted(), function(req, res) {
-  Promise.all([ connectionPromise, ve(req.body.japanese) ])
-      .then(function(connVe) {
-        connection = connVe[0];
-        var veResult = connVe[1];
-        var obj = req.body;
-        if ('id' in obj) {
-          obj = _.omit(obj, 'id');  // Problematic? Was causing node to hang?
-        }
+  var obj = req.body;
+  if ('id' in obj) {
+    obj = _.omit(obj, 'id');  // Problematic? Was causing node to hang?
+  }
+  var vePromise = ve(obj.japanese);
+  connectionPromise.then(function(c) {
+                     connection = c;
+                     return Promise.all([
+                       r.table(config.deckTable)
+                           .between([ obj.group.coreNum, r.minval ],
+                                    [ obj.group.coreNum, r.maxval ],
+                                    {index : "groupNums"})
+                           .count()
+                           .run(connection),
+                       vePromise
+                     ])
+                   })
+      .then(function(resVe) {
+        var count = resVe[0];
+        var veResult = resVe[1];
+
         obj.ve = veResult;
+        obj.group.num = count;
+
         return r.table(config.deckTable)
             .insert(obj)
             .run(connection, {durability : 'soft'});
