@@ -30,8 +30,8 @@ passwordless.addDelivery(function(tokenToSend, uidToSend, recipient, callback) {
   // Print out token
   var url =
       host + '?token=' + tokenToSend + '&uid=' + encodeURIComponent(uidToSend);
-  var result = 'Hi! Follow this link to log in to your Unlocked account:\n\n' +
-               url + '\n\nMuch love,\n〜Japanese Unlocked';
+  var result = 'Hi! Follow this link to log in to your Unlock account:\n\n' +
+               url + '\n\nMuch love,\n〜Unlock Japanese';
   console.log(result);
   if (siteConfig.production) {
     sendgrid.send(

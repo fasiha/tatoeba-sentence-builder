@@ -14,17 +14,14 @@ router.get('/restricted', passwordless.restricted(), function(req, res) {
 
 router.get('/login', function(req, res) { res.render('login', {user : req.user}); });
 
-router.get('/logout',
-           passwordless.logout(), function(req, res) { res.redirect('/'); });
+router.get('/loginstatus', function(req, res) {
+  console.log(req.user);
+  res.json(req.user ? true : null);
+});
 
-// Simply accept every user
-// usually you would want something like:
-// User.find({email: user}, callback(ret) {
-// 		if(ret)
-// 			callback(null, ret.id)
-// 		else
-// 			callback(null, null)
-// })
+router.get('/logout', passwordless.logout(),
+           function(req, res) { res.redirect('/'); });
+
 router.post('/sendtoken',
             passwordless.requestToken(function(user, delivery, callback) {
               if (config.adminEmails.indexOf(user) >= 0) {
@@ -41,7 +38,7 @@ var connection = null;
 var connectionPromise = r.connect(
     {host : config.dbHost, port : config.dbPort, db : config.dbName});
 
-router.get('/v2/headwords/:words', function(req, res) {
+router.get('/v2/headwords/:words', passwordless.restricted(), function(req, res) {
   var words = req.params.words.split(',');
   connectionPromise
       .then(function(c) {
@@ -68,7 +65,7 @@ var requestDefaultToStartStop = function(req, def) {
   var end = page ? Math.max(1, page) * def : def;
   return [ start, end ];
 };
-router.get('/v2/sentences/:headword/:sense', function(req, res) {
+router.get('/v2/sentences/:headword/:sense', passwordless.restricted(), function(req, res) {
   connectionPromise
       .then(function(c) {
         connection = c;
@@ -92,7 +89,7 @@ router.get('/v2/sentences/:headword/:sense', function(req, res) {
       })
 });
 
-router.get('/v2/corewords', function(req, res) {
+router.get('/v2/corewords', passwordless.restricted(), function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      var defaultSize = 100;
@@ -111,7 +108,7 @@ router.get('/v2/corewords', function(req, res) {
       });
 });
 
-router.get('/v2/deck', function(req, res) {
+router.get('/v2/deck', passwordless.restricted(), function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      return r.table(config.deckTable)
@@ -126,7 +123,7 @@ router.get('/v2/deck', function(req, res) {
       });
 });
 
-router.get('/v2/deck/:corenum', function(req, res) {
+router.get('/v2/deck/:corenum', passwordless.restricted(), function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      return r.table(config.deckTable)
@@ -145,7 +142,7 @@ router.get('/v2/deck/:corenum', function(req, res) {
 });
 
 // New sentence from example sentences
-router.post('/v2/deck', function(req, res) {
+router.post('/v2/deck', passwordless.restricted(), function(req, res) {
   Promise.all([ connectionPromise, ve(req.body.japanese) ])
       .then(function(connVe) {
         connection = connVe[0];
@@ -166,7 +163,7 @@ router.post('/v2/deck', function(req, res) {
 });
 
 // Edited sentence
-router.put('/v2/deck/:id', function(req, res) {
+router.put('/v2/deck/:id', passwordless.restricted(), function(req, res) {
   var obj = req.body;
   if (req.params.id !== obj.id) {
     res.status(404);
@@ -189,7 +186,7 @@ router.put('/v2/deck/:id', function(req, res) {
       });
 });
 
-router.delete('/v2/deck/:id', function(req, res) {
+router.delete('/v2/deck/:id', passwordless.restricted(), function(req, res) {
   connectionPromise
       .then(function(c) {
         connection = c;

@@ -40,6 +40,14 @@ var jsonPromisifiedUncached = (url, obj) =>
         .then(res => res.json())
         .catch(ex => console.log('parsing failed', ex));
 
+// First things first: login?
+jsonPromisified('/loginstatus')
+    .then(res => {
+      if (!res) {
+        window.location.assign('/');
+      }
+    });
+
 // Pane 1: CORE WORDS
 var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream =
