@@ -155,7 +155,9 @@ router.post('/v2/deck', function(req, res) {
           obj = _.omit(obj, 'id');  // Problematic? Was causing node to hang?
         }
         obj.ve = veResult;
-        return r.table(config.deckTable).insert(obj).run(connection);
+        return r.table(config.deckTable)
+            .insert(obj)
+            .run(connection, {durability : 'soft'});
       })
       .then(function(results) {
         res.json(results);
@@ -171,7 +173,7 @@ router.put('/v2/deck/:id', function(req, res) {
     res.json({err : 'ID in body object did not match ID in URL'});
     return;
   }
-  Promise.all([connectionPromise, ve(req.body.japanese)])
+  Promise.all([ connectionPromise, obj.japanese ? ve(obj.japanese) : null ])
       .then(function(connVe) {
         connection = connVe[0];
         var veResult = connVe[1];
@@ -179,7 +181,7 @@ router.put('/v2/deck/:id', function(req, res) {
         return r.table(config.deckTable)
             .get(obj.id)
             .update(obj)
-            .run(connection);
+            .run(connection, {durability : 'soft'});
       })
       .then(function(results) {
         res.json(results);
@@ -194,7 +196,7 @@ router.delete('/v2/deck/:id', function(req, res) {
         return r.table(config.deckTable)
             .get(req.params.id)
             .delete()
-            .run(connection);
+            .run(connection, {durability : 'soft'});
       })
       .then(function(results) {
         res.json(results);

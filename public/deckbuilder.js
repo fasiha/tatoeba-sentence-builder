@@ -10,17 +10,35 @@ var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = s => s.search(hanRegexp) >= 0;
 
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
-var jsonPromisified = Promise.promisify(d3.json);
 var makePromisified = method =>
-    ((url, obj) => fetch(url, {
-       method : method,
-       headers :
-           {Accept : 'application/json', 'Content-Type' : 'application/json'},
-       body : _.isString(obj) ? obj : JSON.stringify(obj)
-     }));
+    ((url, obj) => fetch(url,
+                         {
+                           method : method.toUpperCase(),
+                           headers : {
+                             Accept : 'application/json',
+                             'Content-Type' : 'application/json'
+                           },
+                           body : _.isString(obj) ? obj : JSON.stringify(obj)
+                         })
+                       .then(res => res.json())
+                       .catch(ex => console.log('parsing failed', ex)));
+var jsonPromisified = makePromisified('get');
 var postPromisified = makePromisified('post');
 var putPromisified = makePromisified('put');
 var deletePromisified = makePromisified('delete');
+var jsonPromisifiedUncached = (url, obj) =>
+    fetch(url,
+          {
+            method : 'GET',
+            headers : {
+              Accept : 'application/json',
+              'Content-Type' : 'application/json',
+              'Cache-Control' : 'no-cache'
+            },
+            body : _.isString(obj) ? obj : JSON.stringify(obj)
+          })
+        .then(res => res.json())
+        .catch(ex => console.log('parsing failed', ex));
 
 // Pane 1: CORE WORDS
 var coreStartStream = Kefir.constant(1);
@@ -32,20 +50,20 @@ var coreResponseStream =
                      jsonPromisified(`/v2/corewords/?page=${corePage}`)));
 
 coreResponseStream.onValue(function(corewords) {
-  d3.select('#core-words ol')
-      .selectAll('li.core-word')
-      .data(corewords,
-            obj => obj.source.details || "")  // FIXME won't work for non-Tono
-      .enter()
-      .append('li')
-      .classed('core-word', true)
-      .text(corewordObj =>
-                corewordObj.words.join('；') +
-                ` (${tonoDetailsCleanup(corewordObj.source.details)})`);
+  var c = d3.select('#core-words ol')
+              .selectAll('li.core-word')
+              .data(corewords,
+                    obj => obj.source.details ||
+                           "")  // FIXME won't work for non-Tono
+              .enter()
+              .append('li')
+              .classed('core-word', true)
+              .text(corewordObj => corewordObj.words.join('；') +
+                  ` (${tonoDetailsCleanup(corewordObj.source.details)})`);
+  // c.append('button').classed('select-core', true).text('→');
   d3.select('#more-core').classed('no-display', false);
 });
 
-// Pane 2: DICTIONARY ENTRIES CORRESPONDING TO Pane 1 (CORE WORD) CLICKS
 var coreClickStream =
     Kefir.fromEvents(document.querySelector('#core-words ol'), 'click')
         .map(clickEvent => {
@@ -54,6 +72,7 @@ var coreClickStream =
           return clickEvent.target.__data__;
         });
 
+// Pane 2: DICTIONARY ENTRIES CORRESPONDING TO Pane 1 (CORE WORD) CLICKS
 var dictResponseStream =
     coreClickStream.flatMap(coreword => Kefir.fromPromise(jsonPromisified(
                                 '/v2/headwords/' + coreword.words.join(','))));
@@ -92,12 +111,16 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(() => null))],
         .classed('sense-entry', true)
         .text(senseObj => senseObj.sense);
   }
+  if (coreword.source.num === -1) {
+    d3.select('button#new-sentence').classed('no-display', false);
+  }
 });
 
 // Pane 3: EXAMPLE SENTENCES BASED ON Pane 2 (DICTIONARY) CLICKS
 function clearSentences() {
   d3.select('#sentences ol').selectAll('li').remove();
   d3.select('#more-sentences').classed('no-display', true);
+  d3.select('button#new-sentence').classed('no-display',true);
 }
 
 var entryClickStream =
@@ -149,6 +172,7 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
         .append('li')
         .text('No sentences found for headword “' + headword + "”, sense #" +
               senseNum);
+    d3.select('button#new-sentence').classed('no-display',false);
   } else {
     var sentences =
         d3.select('#sentences ol')
@@ -160,6 +184,7 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
             .text(sentence => sentence.japanese + ' ' + sentence.english);
 
     d3.select('#more-sentences').classed('no-display', false);
+    d3.select('button#new-sentence').classed('no-display',false);
 
     sentences.append('button').classed('add-to-deck', true).text('✓');
   }
@@ -197,42 +222,55 @@ var deckClickStream =
 var deckButtonClickStream =
     deckClickStream.filter(ev => ev.target.tagName.toLowerCase() === 'button');
 
-var deckEdititedStream =
-    deckButtonClickStream.filter(ev => ev.target.className.indexOf(
-                                           'done-editing') >= 0)
-        .map(ev => d3.select(ev.target));
-deckEdititedStream.onValue(selection => {
-                    var button = selection.text();
-                    var deckObj = selection.node().parentNode.__data__;
+var deckNewSentenceClickStream =
+    deckButtonClickStream.filter(ev => ev.target.id === 'new-sentence')
+        .onValue((ev) =>
+                 {
+                   var editBox = d3.select('#deck').append('div').classed(
+                       'new-sentence-box', true);
+                   var japanese = editBox.append('textarea')
+                                      .classed('edit-japanese', true)
+                                      .text('')
+                                      .attr('placeholder', '日本語');
+                   var english = editBox.append('textarea')
+                                     .classed('edit-english', true)
+                                     .text('')
+                                     .attr('placeholder', 'English');
+                   editBox.append('button').text('Submit').classed(
+                       'done-newing', true);
+                   editBox.append('button').text('Cancel').classed(
+                       'cancel-newing', true);
+                   return 1;
+                 });
 
-                    if (button === 'Submit') {
-                      var parentTag = d3.select(
-                          selection.node().parentNode);  // FIXME SUPER-FRAGILE!
-                      deckObj.english =
-                          parentTag.select('textarea.edit-english')
-                              .property('value');
-                      deckObj.japanese =
-                          parentTag.select('textarea.edit-japanese')
-                              .property('value');
-
-                      var furigana =
-                          parentTag.selectAll('input.edit-furigana')[0].map(
-                              node => node.value);
-                      var kanjiLemmas =
-                          deckObj.ve.filter(veObj => hasKanji(veObj.word));
-                      kanjiLemmas.forEach((ve, idx) => ve.reading =
-                                              furigana[idx]);
-                      return Kefir.fromPromise(
-                          putPromisified('/v2/deck/' + deckObj.id, deckObj));
-                    } else if (button === 'Cancel') {
-                      return selection;
-                    } else if (button === 'Delete') {
-                      return Kefir.fromPromise(
-                          deletePromisified('/v2/deck/' + deckObj.id));
-                    }
-                    return selection;
-
-                  }).log();
+var deckDoneNewClickStream = deckButtonClickStream.filter(
+    ev => ev.target.parentNode.className.indexOf('new-sentence-box') >= 0).log();
+var deckNewResponseStream =
+    Kefir.combine([ deckDoneNewClickStream ],
+                  [ entryClickStream, coreClickStream ])
+        .flatMap(([ ev, {headword, senseNum}, coreword ]) => {
+          var div = d3.select(ev.target.parentNode);
+          var button = ev.target.innerHTML;
+          console.log(button)
+          if (button === 'Submit') {
+            var obj = {
+              english : div.select('.edit-english').property('value'),
+              japanese : div.select('.edit-japanese').property('value'),
+              tags : [],
+              ve : [],
+              modifiedTime : new Date(),
+              group : {
+                coreNum : coreword.source.num,
+                num : -1, headword, senseNum
+              }
+            };
+            return Kefir.fromPromise(postPromisified('/v2/deck', obj));
+          } else if (button === 'Cancel') {
+            div.remove();
+            return 0;
+          }
+          return -1;
+        });
 
 var deckSentenceEditClickStream =
     deckButtonClickStream.filter(ev => ev.target.className.indexOf(
@@ -241,13 +279,14 @@ var deckSentenceEditClickStream =
 deckSentenceEditClickStream.onValue(selection => {
   selection.select('button.edit-deck').classed('no-display', true);
   var deckObj = selection.datum();
-  var japanese = selection.append('textarea')
+  var editBox = selection.append('div').classed('edit-box',true);
+  var japanese = editBox.append('textarea')
                      .classed('edit-japanese', true)
                      .text(deckObj.japanese);
-  var english = selection.append('textarea')
+  var english = editBox.append('textarea')
                     .classed('edit-english', true)
                     .text(deckObj.english);
-  var furigana = selection.append('ul')
+  var furigana = editBox.append('ul')
                      .selectAll('li.furigana-list')
                      .data(deckObj.ve.filter(o => hasKanji(o.word)))
                      .enter()
@@ -258,25 +297,60 @@ deckSentenceEditClickStream.onValue(selection => {
                                .classed('edit-furigana', true)
                                .attr({type : 'text'})
                                .attr('value', ve => ve.reading);
-  selection.append('button').text('Submit').classed('done-editing',true);
-  selection.append('button').text('Cancel').classed('done-editing',true);
-  selection.append('button').text('Delete').classed('done-editing',true);
+  editBox.append('button').text('Submit').classed('done-editing',true);
+  editBox.append('button').text('Cancel').classed('done-editing',true);
+  editBox.append('button').text('Delete').classed('done-editing',true);
   return selection;
+});
+
+var deckEdititedStream =
+    deckButtonClickStream.filter(ev => ev.target.className.indexOf(
+                                           'done-editing') >= 0)
+        .map(ev => d3.select(ev.target));
+var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
+  var button = selection.text();
+  var parentNode = selection.node().parentNode;
+  var deckObj = parentNode.__data__;
+
+  if (button === 'Submit') {
+    var parentTag =
+        d3.select(selection.node().parentNode);  // FIXME SUPER-FRAGILE!
+    deckObj.english =
+        parentTag.select('textarea.edit-english').property('value');
+    var newJapanese =
+        parentTag.select('textarea.edit-japanese').property('value');
+    deckObj.japanese = newJapanese === deckObj.japanese ? null : newJapanese;
+    deckObj.modifiedTime = new Date();
+
+    var furigana =
+        parentTag.selectAll('input.edit-furigana')[0].map(node => node.value);
+    var kanjiLemmas = deckObj.ve.filter(veObj => hasKanji(veObj.word));
+    kanjiLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
+    return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id, deckObj));
+  } else if (button === 'Cancel') {
+    parentNode.remove();
+    return 0;
+  } else if (button === 'Delete') {
+    return Kefir.fromPromise(deletePromisified('/v2/deck/' + deckObj.id));
+  }
+  return -1; // Never happens
 });
 
 var deckRequestStream = Kefir.merge([
   coreClickStream,
   coreClickStream.sampledBy(exampleSentenceDeckSubmitStream),
-  coreClickStream.sampledBy(deckEdititedStream)
-]).log();
-var deckResponseStream =
-    deckRequestStream.flatMap(corewordObj => Kefir.fromPromise(jsonPromisified(
-                                  '/v2/deck/' + corewordObj.source.num)));
+  coreClickStream.sampledBy(deckEditResponseStream),
+  coreClickStream.sampledBy(deckNewResponseStream)
+]);
+var deckResponseStream = deckRequestStream.flatMap(
+    corewordObj => Kefir.fromPromise(
+        jsonPromisifiedUncached('/v2/deck/' + corewordObj.source.num)));
 deckResponseStream.merge(coreClickStream.map(() => null))
     .onValue(function(deck, corewordObj) {
       if (deck === null) {
         d3.select('#deck ol').html('');
       } else {
+        d3.select('#deck ol').html('');
         var data = d3.select('#deck ol')
                             .selectAll('li.deck-sentence')
                             .data(deck, deckObj => deckObj.japanese);
