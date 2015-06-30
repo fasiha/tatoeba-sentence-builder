@@ -8,7 +8,7 @@
   },
   "keywords": [],
   "author": "aldebrn",
-  "license": "public domain",
+  "license": "Unlicense",
   "dependencies": {
     "babel-core": "^5.5.8",
     "bluebird": "latest",
