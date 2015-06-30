@@ -71,7 +71,9 @@ coreResponseStream.onValue(function (corewords) {
   d3.select('#more-core').classed('no-display', false);
 });
 
-var coreClickStream = Kefir.fromEvents(document.querySelector('#core-words ol'), 'click').map(function (clickEvent) {
+var coreClickStream = Kefir.fromEvents(document.querySelector('#core-words ol'), 'click').filter(function (ev) {
+  return ev.target.tagName.toLowerCase() === 'li';
+}).map(function (clickEvent) {
   d3.selectAll('li.clicked.core-word').classed('clicked', false);
   clickEvent.target.className += ' clicked';
   return clickEvent.target.__data__;
@@ -121,7 +123,9 @@ function clearSentences() {
   d3.select('button#new-sentence').classed('no-display', true);
 }
 
-var entryClickStream = Kefir.fromEvents(document.querySelector('#dictionary'), 'click').map(function (clickEvent) {
+var entryClickStream = Kefir.fromEvents(document.querySelector('#dictionary'), 'click').filter(function (ev) {
+  return ev.target.tagName.toLowerCase() === 'li';
+}).map(function (clickEvent) {
   var entryOrSense = clickEvent.target.__data__;
   if (!entryOrSense) {
     // No data!
