@@ -51,6 +51,13 @@ var jsonPromisifiedUncached = function jsonPromisifiedUncached(url, obj) {
   });
 };
 
+// First things first: login?
+jsonPromisified('/loginstatus').then(function (res) {
+  if (!res) {
+    window.location.assign('/');
+  }
+});
+
 // Pane 1: CORE WORDS
 var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream = Kefir.fromEvents(document.querySelector('#more-core'), 'click');
@@ -351,7 +358,7 @@ deckResponseStream.merge(coreClickStream.map(function () {
     data.exit().remove();
     var sentences = data.enter().append('li').classed('deck-sentence', true).html(function (deckObj) {
       var furigana = veArrayToFuriganaMarkup(deckObj.ve);
-      return furigana + ' ' + deckObj.english;
+      return furigana + ' ' + deckObj.english + '\n                              (s' + deckObj.group.senseNum + ') ';
     });
     sentences.append('button').classed('edit-deck', true).text('?');
   }

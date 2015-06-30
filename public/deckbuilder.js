@@ -371,7 +371,8 @@ deckResponseStream.merge(coreClickStream.map(() => null))
                             .html(deckObj => {
                               var furigana =
                                   veArrayToFuriganaMarkup(deckObj.ve);
-                              return `${furigana} ${deckObj.english}`
+                              return `${furigana} ${deckObj.english}
+                              (s${deckObj.group.senseNum}) `
                             });
         sentences.append('button').classed('edit-deck', true).text('?');
       }
