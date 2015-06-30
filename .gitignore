@@ -8,4 +8,5 @@ data-static/
 config.js
 rethinkdb_data/
 redis-data/
+.DS_Store
 
