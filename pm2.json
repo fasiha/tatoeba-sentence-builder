@@ -7,7 +7,7 @@
       "watch" : true,
       "node_args" : "",
       "merge_logs" : true,
-      "cwd" : "/this/is/a/path/to/start/script",
+      "cwd" : "/home/deploy/src/tatoeba-sentence-builder",
       "env" : {"NODE_ENV" : "production"}
     }
   ]

@@ -3,6 +3,7 @@ var ve = require('../ve');
 var debug = require('debug')('routes');
 var express = require('express');
 var router = express.Router();
+var config = require('../config');
 
 var passwordless = require('passwordless');
 
@@ -33,7 +34,6 @@ router.post('/sendtoken',
             function(req, res) { res.render('sent'); });
 
 var r = require('rethinkdb');
-var config = require('../config');
 var connection = null;
 var connectionPromise = r.connect(
     {host : config.dbHost, port : config.dbPort, db : config.dbName});
