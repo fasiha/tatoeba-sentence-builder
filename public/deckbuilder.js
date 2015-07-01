@@ -363,7 +363,7 @@ var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
 });
 
 // When you add an example sentence, create a new sentence, or edit an existing
-// deck sentence, or just click on a coreword, refresh the deck.
+// deck sentence, or just click on a new coreword, refresh the deck.
 var deckRequestStream = Kefir.merge([
   coreClickStream,
   coreClickStream.sampledBy(Kefir.merge([
@@ -381,36 +381,33 @@ var deckResponseStream = deckRequestStream.flatMap(
     corewordObj => Kefir.fromPromise(
         jsonPromisifiedUncached('/v2/deck/' + corewordObj.source.num)));
 
-Kefir.combine([
-       deckResponseStream.merge(deckRequestStream.map(() => null)),
-       entryAndCoreClickStream
-     ])
+// Deck render!
+Kefir.combine([ deckResponseStream, entryAndCoreClickStream ])
     .onValue(([ deck, [ entryObj, corewordObj ] ]) => {
-      if (deck === null) {
-        d3.select('#deck ol').html('');
-      } else {
-        if (entryObj) {
-          var {headword, senseNum} = entryObj;
-        }
-        d3.select('#deck ol').html('');
-        var data =
-            d3.select('#deck ol')
-                .selectAll('li.deck-sentence')
-                .data(headword
-                          ? deck.filter(o => o.group.senseNum === senseNum &&
-                                             o.group.headword === headword)
-                          : deck);
-        var sentences = data.enter()
-                            .append('li')
-                            .classed('deck-sentence', true)
-                            .html(deckObj => {
-                              var furigana =
-                                  veArrayToFuriganaMarkup(deckObj.ve);
-                              return `${furigana} ${deckObj.english}
-                              (s${deckObj.group.senseNum}) `
-                            });
-        sentences.append('button').classed('edit-deck', true).text('?');
+      if (entryObj) {
+        var {headword, senseNum} = entryObj;
+        // Sense-matching deck entries come first, then non-matching
+        deck = _.flatten(_.partition(deck, o => o.group.senseNum === senseNum &&
+                                                o.group.headword === headword));
       }
+      d3.select('#deck ol').html('');
+      var sentences = d3.select('#deck ol')
+                          .selectAll('li.deck-sentence')
+                          .data(deck)
+                          .enter()
+                          .append('li')
+                          .classed('deck-sentence', true)
+                          .classed('off-sense',
+                                   headword
+                                       ? o => !(o.group.senseNum === senseNum &&
+                                                o.group.headword === headword)
+                                       : false)
+                          .html(deckObj => {
+                            var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+                            return `${furigana} ${deckObj.english}
+                              (s${deckObj.group.senseNum}) `
+                          });
+      sentences.append('button').classed('edit-deck', true).text('?');
     });
 
 // FURIGANA UTILITIES
