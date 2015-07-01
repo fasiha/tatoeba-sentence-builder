@@ -74,8 +74,8 @@ router.get('/v2/sentences/:headword/:sense', passwordless.restricted(), function
 
         return r.db(config.dbName)
             .table(config.examplesTable)
-            .between([ req.params.headword, +req.params.sense, 0 ],
-                     [ req.params.headword, +req.params.sense, 1e3 ],
+            .between([ req.params.headword, +req.params.sense, r.minval ],
+                     [ req.params.headword, +req.params.sense, r.maxval ],
                      {index : 'headwordsSenseNumChars'})
             .orderBy({index : 'headwordsSenseNumChars'})
             .slice(startEnd[0], startEnd[1])
