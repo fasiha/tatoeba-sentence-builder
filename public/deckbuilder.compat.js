@@ -9,7 +9,8 @@ var GLOB;
 // SENTENCE-RELATED UTILITIES
 //////////////////////////////////////////
 function tonoDetailsCleanup(details) {
-  return details.split('\n')[0].replace(/^[0-9]+ /, '');
+  var lines = details.split('\n');
+  return lines[0].replace(/^[0-9]+ /, '') + '<br>' + (lines[1] || '');
 }
 var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = function hasKanji(s) {
@@ -76,20 +77,20 @@ var coreResponseStream = coreStartStream.merge(moreCoreClickStream.scan(function
 });
 
 coreResponseStream.onValue(function (corewords) {
-  var c = d3.select('#core-words ol').selectAll('li.core-word').data(corewords, function (obj) {
-    return obj.source.details || '';
+  var c = d3.select('#core-words-list').selectAll('div.core-word').data(corewords, function (obj) {
+    return obj.source.details;
   }) // FIXME won't work for non-Tono
-  .enter().append('li').classed('core-word', true).text(function (corewordObj) {
-    return corewordObj.words.join('；') + (' (' + tonoDetailsCleanup(corewordObj.source.details) + ')');
+  .enter().append('div').classed('core-word', true).html(function (corewordObj) {
+    return '' + corewordObj.words.join('；') + ('<br>\n                        ' + tonoDetailsCleanup(corewordObj.source.details));
   });
   // c.append('button').classed('select-core', true).text('→');
   d3.select('#more-core').classed('no-display', false);
 });
 
-var coreClickStream = Kefir.fromEvents(document.querySelector('#core-words ol'), 'click').filter(function (ev) {
-  return ev.target.tagName.toLowerCase() === 'li';
+var coreClickStream = Kefir.fromEvents(document.querySelector('#core-words-list'), 'click').filter(function (ev) {
+  return ev.target.tagName.toLowerCase() === 'div' && ev.target.className.indexOf('core-word') >= 0;
 }).map(function (clickEvent) {
-  d3.selectAll('li.clicked.core-word').classed('clicked', false);
+  d3.selectAll('div.clicked.core-word').classed('clicked', false);
   clickEvent.target.className += ' clicked';
   return clickEvent.target.__data__;
 });

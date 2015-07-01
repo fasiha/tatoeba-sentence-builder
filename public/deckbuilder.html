@@ -6,11 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 /*This just stops me getting horizontal scrolling if anything overflows the width*/
 body {
-    overflow-x: hidden;
+  overflow-x: hidden;
+  counter-reset: corenumber -1;    
 }
 /*Just removing default browser padding/margin*/
 html, body {
@@ -55,7 +56,6 @@ html, body {
 
 .clicked {
   background-color: #ddd;
-  font-weight: bold;
 }
 
 .no-display {
@@ -70,6 +70,19 @@ textarea {
   color:gray;
 }
 
+.core-word {
+  margin-top: 1ex;
+  padding-top: 1ex;
+  padding-bottom: 1ex;
+  border: 1px solid gray;
+  padding-left:1ex;
+  text-indent: -1ex;
+}
+
+.core-word::before {
+  counter-increment: corenumber;
+  content: counter(corenumber) "）";
+}
     </style>
     <link href="stylesheets/ruby.css" rel="stylesheet" title="Ruby style">
     <script src="d3.v3.min.js" charset="utf-8"></script>
@@ -92,6 +105,7 @@ textarea {
     </div>
     <div class="container">
       <div class="flexible" id="core-words">
+        <div id="core-words-list"></div>
         <ol start="0"></ol>
         <button id="more-core" class="no-display">+</button>
       </div>

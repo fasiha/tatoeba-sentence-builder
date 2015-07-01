@@ -6,7 +6,8 @@ var GLOB;
 // SENTENCE-RELATED UTILITIES
 //////////////////////////////////////////
 function tonoDetailsCleanup(details) {
-  return details.split('\n')[0].replace(/^[0-9]+ /, '');
+  var lines = details.split('\n');
+  return lines[0].replace(/^[0-9]+ /, '') + '<br>' + (lines[1] || "");
 }
 var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = s => s.search(hanRegexp) >= 0;
@@ -66,25 +67,25 @@ var coreResponseStream =
                      jsonPromisified(`/v2/corewords/?page=${corePage}`)));
 
 coreResponseStream.onValue(function(corewords) {
-  var c = d3.select('#core-words ol')
-              .selectAll('li.core-word')
+  var c = d3.select('#core-words-list')
+              .selectAll('div.core-word')
               .data(corewords,
-                    obj => obj.source.details ||
-                           "")  // FIXME won't work for non-Tono
+                    obj => obj.source.details)  // FIXME won't work for non-Tono
               .enter()
-              .append('li')
+              .append('div')
               .classed('core-word', true)
-              .text(corewordObj => corewordObj.words.join('；') +
-                  ` (${tonoDetailsCleanup(corewordObj.source.details)})`);
+              .html(corewordObj => `${corewordObj.words.join('；')}` + `<br>
+                        ${tonoDetailsCleanup(corewordObj.source.details)}`);
   // c.append('button').classed('select-core', true).text('→');
   d3.select('#more-core').classed('no-display', false);
 });
 
 var coreClickStream =
-    Kefir.fromEvents(document.querySelector('#core-words ol'), 'click')
-        .filter(ev => ev.target.tagName.toLowerCase() === 'li')
+    Kefir.fromEvents(document.querySelector('#core-words-list'), 'click')
+        .filter(ev => ev.target.tagName.toLowerCase() === 'div' &&
+            ev.target.className.indexOf('core-word') >= 0)
         .map(clickEvent => {
-          d3.selectAll('li.clicked.core-word').classed('clicked', false);
+          d3.selectAll('div.clicked.core-word').classed('clicked', false);
           clickEvent.target.className += ' clicked';
           return clickEvent.target.__data__;
         });
