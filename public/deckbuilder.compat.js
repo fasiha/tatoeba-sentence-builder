@@ -68,22 +68,36 @@ jsonPromisified('/loginstatus').then(function (res) {
 //////////////////////////////////////////
 // Pane 1: CORE WORDS
 //////////////////////////////////////////
-var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream = Kefir.fromEvents(document.querySelector('#more-core'), 'click');
-var coreResponseStream = coreStartStream.merge(moreCoreClickStream.scan(function (prev, next) {
+var coreResponseStream = moreCoreClickStream.scan(function (prev, next) {
   return prev + 1;
-}, 1)).flatMap(function (corePage) {
+}, 1).flatMap(function (corePage) {
   return Kefir.fromPromise(jsonPromisified('/v2/corewords/?page=' + corePage));
 });
 
-coreResponseStream.onValue(function (corewords) {
-  var c = d3.select('#core-words-list').selectAll('div.core-word').data(corewords, function (obj) {
+var allCorewordsStream = coreResponseStream.scan(function (prev, next) {
+  return prev.concat(next);
+});
+
+Kefir.combine([coreResponseStream], [allCorewordsStream]).onValue(function (_ref) {
+  var _ref2 = _slicedToArray(_ref, 2);
+
+  var corewords = _ref2[0];
+  var allCorewords = _ref2[1];
+
+  var coreToIdx = _.object(allCorewords.map(function (o) {
+    return o.source.details;
+  }), _.range(allCorewords.length));
+  d3.select('#core-words-list').selectAll('div.core-word').data(corewords, function (obj) {
     return obj.source.details;
   }) // FIXME won't work for non-Tono
-  .enter().append('div').classed('core-word', true).html(function (corewordObj) {
+  .enter().append('div').classed('core-word', true).classed('repeated-core', function (obj) {
+    return _.any(allCorewords.slice(0, 1 + coreToIdx[obj.source.details]).map(function (o) {
+      return o.words.join('') === obj.words.join('') && o.source.details !== obj.source.details;
+    }));
+  }).html(function (corewordObj) {
     return '' + corewordObj.words.join('；') + ('<br>\n                        ' + tonoDetailsCleanup(corewordObj.source.details));
   });
-  // c.append('button').classed('select-core', true).text('→');
   d3.select('#more-core').classed('no-display', false);
 });
 
@@ -104,11 +118,11 @@ var dictResponseStream = coreClickStream.flatMap(function (coreword) {
 
 Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
   return null;
-}))], [coreClickStream]).onValue(function (_ref) {
-  var _ref2 = _slicedToArray(_ref, 2);
+}))], [coreClickStream]).onValue(function (_ref3) {
+  var _ref32 = _slicedToArray(_ref3, 2);
 
-  var entries = _ref2[0];
-  var coreword = _ref2[1];
+  var entries = _ref32[0];
+  var coreword = _ref32[1];
 
   var words = coreword.words.join('・');
   var dictText;
@@ -167,22 +181,22 @@ var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream).map
   return obj;
 });
 
-var sentenceResponseStream = entryClickStream.merge(moreEntriesStream).flatMap(function (_ref3) {
-  var headword = _ref3.headword;
-  var senseNum = _ref3.senseNum;
-  var page = _ref3.page;
+var sentenceResponseStream = entryClickStream.merge(moreEntriesStream).flatMap(function (_ref4) {
+  var headword = _ref4.headword;
+  var senseNum = _ref4.senseNum;
+  var page = _ref4.page;
   return Kefir.fromPromise(jsonPromisified('/v2/sentences/' + headword + '/' + senseNum + '/?page=' + page));
 });
 
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
   return null;
-}))], [entryClickStream]).onValue(function (_ref4) {
-  var _ref42 = _slicedToArray(_ref4, 2);
+}))], [entryClickStream]).onValue(function (_ref5) {
+  var _ref52 = _slicedToArray(_ref5, 2);
 
-  var sentences = _ref42[0];
-  var _ref42$1 = _ref42[1];
-  var headword = _ref42$1.headword;
-  var senseNum = _ref42$1.senseNum;
+  var sentences = _ref52[0];
+  var _ref52$1 = _ref52[1];
+  var headword = _ref52$1.headword;
+  var senseNum = _ref52$1.senseNum;
 
   if (sentences === null) {
     clearSentences();
@@ -212,14 +226,14 @@ var exampleSentenceAddClickStream = Kefir.fromEvents(document.querySelector('#se
   return ev.target.__data__;
 });
 
-var exampleSentenceDeckSubmitStream = Kefir.combine([exampleSentenceAddClickStream], [entryClickStream, coreClickStream]).flatMap(function (_ref5) {
-  var _ref52 = _slicedToArray(_ref5, 3);
+var exampleSentenceDeckSubmitStream = Kefir.combine([exampleSentenceAddClickStream], [entryClickStream, coreClickStream]).flatMap(function (_ref6) {
+  var _ref62 = _slicedToArray(_ref6, 3);
 
-  var sentenceObj = _ref52[0];
-  var _ref52$1 = _ref52[1];
-  var headword = _ref52$1.headword;
-  var senseNum = _ref52$1.senseNum;
-  var coreword = _ref52[2];
+  var sentenceObj = _ref62[0];
+  var _ref62$1 = _ref62[1];
+  var headword = _ref62$1.headword;
+  var senseNum = _ref62$1.senseNum;
+  var coreword = _ref62[2];
 
   // Server shouldn't send sentence document's ID but be careful. This
   // is a new sentence, NOT an edit.
@@ -257,14 +271,14 @@ var deckNewSentenceClickStream = deckButtonClickStream.filter(function (ev) {
 var deckDoneNewClickStream = deckButtonClickStream.filter(function (ev) {
   return ev.target.parentNode.className.indexOf('new-sentence-box') >= 0;
 });
-var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickStream, coreClickStream]).flatMap(function (_ref6) {
-  var _ref62 = _slicedToArray(_ref6, 3);
+var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickStream, coreClickStream]).flatMap(function (_ref7) {
+  var _ref72 = _slicedToArray(_ref7, 3);
 
-  var ev = _ref62[0];
-  var _ref62$1 = _ref62[1];
-  var headword = _ref62$1.headword;
-  var senseNum = _ref62$1.senseNum;
-  var coreword = _ref62[2];
+  var ev = _ref72[0];
+  var _ref72$1 = _ref72[1];
+  var headword = _ref72$1.headword;
+  var senseNum = _ref72$1.senseNum;
+  var coreword = _ref72[2];
 
   var div = d3.select(ev.target.parentNode);
   var button = ev.target.innerHTML;
@@ -364,15 +378,15 @@ var deckResponseStream = deckRequestStream.flatMap(function (corewordObj) {
 });
 
 // Deck render!
-Kefir.combine([deckResponseStream, entryAndCoreClickStream]).onValue(function (_ref7) {
-  var _ref72 = _slicedToArray(_ref7, 2);
+Kefir.combine([deckResponseStream, entryAndCoreClickStream]).onValue(function (_ref8) {
+  var _ref82 = _slicedToArray(_ref8, 2);
 
-  var deck = _ref72[0];
+  var deck = _ref82[0];
 
-  var _ref72$1 = _slicedToArray(_ref72[1], 2);
+  var _ref82$1 = _slicedToArray(_ref82[1], 2);
 
-  var entryObj = _ref72$1[0];
-  var corewordObj = _ref72$1[1];
+  var entryObj = _ref82$1[0];
+  var corewordObj = _ref82$1[1];
 
   if (entryObj) {
     var headword = entryObj.headword;

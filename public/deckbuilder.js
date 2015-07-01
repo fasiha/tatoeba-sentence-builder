@@ -58,27 +58,36 @@ jsonPromisified('/loginstatus')
 //////////////////////////////////////////
 // Pane 1: CORE WORDS
 //////////////////////////////////////////
-var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream =
     Kefir.fromEvents(document.querySelector('#more-core'), 'click');
 var coreResponseStream =
-    coreStartStream.merge(moreCoreClickStream.scan((prev, next) => prev + 1, 1))
+    moreCoreClickStream.scan((prev, next) => prev + 1, 1)
         .flatMap(corePage => Kefir.fromPromise(
                      jsonPromisified(`/v2/corewords/?page=${corePage}`)));
 
-coreResponseStream.onValue(function(corewords) {
-  var c = d3.select('#core-words-list')
-              .selectAll('div.core-word')
-              .data(corewords,
-                    obj => obj.source.details)  // FIXME won't work for non-Tono
-              .enter()
-              .append('div')
-              .classed('core-word', true)
-              .html(corewordObj => `${corewordObj.words.join('；')}` + `<br>
+var allCorewordsStream =
+    coreResponseStream.scan((prev, next) => prev.concat(next));
+
+Kefir.combine([ coreResponseStream ], [ allCorewordsStream ])
+    .onValue(([ corewords, allCorewords ]) => {
+      var coreToIdx = _.object(allCorewords.map(o => o.source.details),
+                          _.range(allCorewords.length));
+      d3.select('#core-words-list')
+          .selectAll('div.core-word')
+          .data(corewords,
+                obj => obj.source.details)  // FIXME won't work for non-Tono
+          .enter()
+          .append('div')
+          .classed('core-word', true)
+          .classed('repeated-core',
+                   obj => _.any(
+                       allCorewords.slice(0, 1 + coreToIdx[obj.source.details])
+                           .map(o => o.words.join('') === obj.words.join('') &&
+                                     o.source.details !== obj.source.details)))
+          .html(corewordObj => `${corewordObj.words.join('；')}` + `<br>
                         ${tonoDetailsCleanup(corewordObj.source.details)}`);
-  // c.append('button').classed('select-core', true).text('→');
-  d3.select('#more-core').classed('no-display', false);
-});
+      d3.select('#more-core').classed('no-display', false);
+    });
 
 var coreClickStream =
     Kefir.fromEvents(document.querySelector('#core-words-list'), 'click')
