@@ -96,44 +96,70 @@ var dictResponseStream =
     coreClickStream.flatMap(coreword => Kefir.fromPromise(jsonPromisified(
                                 '/v2/headwords/' + coreword.words.join(','))));
 
-Kefir.combine([dictResponseStream.merge(coreClickStream.map(() => null))],
-              [coreClickStream])
+Kefir.combine([ dictResponseStream.merge(coreClickStream.map(() => null)) ],
+              [ coreClickStream ])
     .onValue(function([ entries, coreword ]) {
-  var words = coreword.words.join('・');
-  var dictText;
+      var words = coreword.words.join('・');
+      var dictText;
 
-  if (entries === null || entries.length === 0) {
-    dictText = entries === null ? 'Looking up ' + words
-                                : 'No dictionary entries found for ' + words;
-    d3.select('#dictionary').text(dictText);
-    clearSentences();
-  } else {
-    var headwordList =
-        d3.select('#dictionary')
-            .append('ol')
-            .selectAll('li.dict-entry')
-            .data(entries)
+      if (entries === null || entries.length === 0) {
+        dictText = entries === null
+                       ? ''
+                       : 'No dictionary entries found for ' + words;
+        d3.select('#dictionary').text(dictText);
+        clearSentences();
+      } else {
+        var headwordList =
+            d3.select('#dictionary')
+                .append('ol')
+                .classed('headwords-list', true)
+                .selectAll('li.dict-entry')
+                .data(entries)
+                .enter()
+                .append('li')
+                .classed('dict-entry', true)
+                .text(entry => entry.headwords.join('・') +
+                               (entry.readings.length
+                                    ? ('・・' + entry.readings.join('・'))
+                                    : ''));
+        headwordList.append('ol')
+            .attr('start', 0)
+            .classed('senses-list', true)
+            .selectAll('li.sense-entry')
+            .data(entry => [
+              '(unspecified sense)'
+            ].concat(entry.senses)
+                               .map((sense, i) => {
+                                 return {sense, entry, senseNum : i - 1};
+                               }))
             .enter()
             .append('li')
-            .classed('dict-entry', true)
-            .text(entry => entry.headwords.join('・') +
-                           (entry.readings.length
-                                ? ('・・' + entry.readings.join('・'))
-                                : ''));
-    headwordList.append('ol')
-        .selectAll('li.sense-entry')
-        .data(entry => entry.senses.map(
-                  (sense, i) =>
-                  { return {sense : sense, entry : entry, senseNum : i}; }))
-        .enter()
-        .append('li')
-        .classed('sense-entry', true)
-        .text(senseObj => senseObj.sense);
-  }
-  if (coreword.source.num === -1) {
-    d3.select('button#new-sentence').classed('no-display', false);
-  }
-});
+            .classed('sense-entry', true)
+            .text(senseObj => senseObj.sense);
+      }
+      if (coreword.source.num === -1) {
+        d3.select('button#new-sentence').classed('no-display', false);
+      }
+    });
+
+var entryClickStream =
+    Kefir.fromEvents(document.querySelector('#dictionary'), 'click')
+        .filter(ev => ev.target.tagName.toLowerCase() === 'li' &&
+                      ev.target.className.indexOf('sense-entry') >= 0)
+        .map(clickEvent => {
+          var senseObj = clickEvent.target.__data__;
+          if (!senseObj) {  // No data!
+            return null;
+          }
+          d3.selectAll('li.clicked.dict-entry').classed('clicked', false);
+          d3.selectAll('li.clicked.sense-entry').classed('clicked', false);
+          clickEvent.target.className += ' clicked';
+
+          var senseNum = senseObj.senseNum + 1,
+              headword = senseObj.entry.headwords[0];
+          return {headword, senseNum, page : 1};
+        })
+        .filter();
 
 //////////////////////////////////////////
 // Pane 3: EXAMPLE SENTENCES BASED ON Pane 2 (DICTIONARY) CLICKS
@@ -143,31 +169,6 @@ function clearSentences() {
   d3.select('#more-sentences').classed('no-display', true);
   d3.select('button#new-sentence').classed('no-display',true);
 }
-
-var entryClickStream =
-    Kefir.fromEvents(document.querySelector('#dictionary'), 'click')
-        .filter(ev => ev.target.tagName.toLowerCase() === 'li')
-        .map(clickEvent =>
-             {
-               var entryOrSense = clickEvent.target.__data__;
-               if (!entryOrSense) {  // No data!
-                 return null;
-               }
-               d3.selectAll('li.clicked.dict-entry').classed('clicked', false);
-               d3.selectAll('li.clicked.sense-entry').classed('clicked', false);
-               clickEvent.target.className += ' clicked';
-
-               var senseNum = 0, headword;
-               if ('entry' in entryOrSense && 'sense' in entryOrSense) {
-                 // Clicked a sense
-                 senseNum = entryOrSense.senseNum + 1;
-                 headword = entryOrSense.entry.headwords[0];
-               } else {
-                 headword = entryOrSense.headwords[0];
-               }
-               return {headword, senseNum, page : 1};
-             })
-        .filter();
 
 // Pagination of Pane 3 (button requesting more sentences)
 var moreSentencesClickStream =
