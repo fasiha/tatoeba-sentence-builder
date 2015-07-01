@@ -269,7 +269,7 @@ var deckNewSentenceClickStream =
                  });
 
 var deckDoneNewClickStream = deckButtonClickStream.filter(
-    ev => ev.target.parentNode.className.indexOf('new-sentence-box') >= 0).log();
+    ev => ev.target.parentNode.className.indexOf('new-sentence-box') >= 0);
 var deckNewResponseStream =
     Kefir.combine([ deckDoneNewClickStream ],
                   [ entryClickStream, coreClickStream ])
@@ -366,23 +366,40 @@ var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
 // deck sentence, or just click on a coreword, refresh the deck.
 var deckRequestStream = Kefir.merge([
   coreClickStream,
-  coreClickStream.sampledBy(exampleSentenceDeckSubmitStream),
-  coreClickStream.sampledBy(deckEditResponseStream),
-  coreClickStream.sampledBy(deckNewResponseStream)
+  coreClickStream.sampledBy(Kefir.merge([
+    exampleSentenceDeckSubmitStream,
+    deckEditResponseStream,
+    deckNewResponseStream
+  ]))
 ]);
+
+var entryAndCoreClickStream =
+    coreClickStream.map(coreObj => [ null, coreObj ])
+        .merge(Kefir.combine([ entryClickStream ], [ coreClickStream ]));
+
 var deckResponseStream = deckRequestStream.flatMap(
     corewordObj => Kefir.fromPromise(
         jsonPromisifiedUncached('/v2/deck/' + corewordObj.source.num)));
-deckResponseStream.merge(coreClickStream.map(() => null))
-    .onValue(function(deck, corewordObj) {
+
+Kefir.combine([
+       deckResponseStream.merge(deckRequestStream.map(() => null)),
+       entryAndCoreClickStream
+     ])
+    .onValue(([ deck, [ entryObj, corewordObj ] ]) => {
       if (deck === null) {
         d3.select('#deck ol').html('');
       } else {
+        if (entryObj) {
+          var {headword, senseNum} = entryObj;
+        }
         d3.select('#deck ol').html('');
-        var data = d3.select('#deck ol')
-                            .selectAll('li.deck-sentence')
-                            .data(deck, deckObj => deckObj.japanese);
-        data.exit().remove();
+        var data =
+            d3.select('#deck ol')
+                .selectAll('li.deck-sentence')
+                .data(headword
+                          ? deck.filter(o => o.group.senseNum === senseNum &&
+                                             o.group.headword === headword)
+                          : deck);
         var sentences = data.enter()
                             .append('li')
                             .classed('deck-sentence', true)

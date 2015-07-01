@@ -262,7 +262,7 @@ var deckNewSentenceClickStream = deckButtonClickStream.filter(function (ev) {
 
 var deckDoneNewClickStream = deckButtonClickStream.filter(function (ev) {
   return ev.target.parentNode.className.indexOf('new-sentence-box') >= 0;
-}).log();
+});
 var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickStream, coreClickStream]).flatMap(function (_ref6) {
   var _ref62 = _slicedToArray(_ref6, 3);
 
@@ -359,21 +359,39 @@ var deckEditResponseStream = deckEdititedStream.flatMap(function (selection) {
 
 // When you add an example sentence, create a new sentence, or edit an existing
 // deck sentence, or just click on a coreword, refresh the deck.
-var deckRequestStream = Kefir.merge([coreClickStream, coreClickStream.sampledBy(exampleSentenceDeckSubmitStream), coreClickStream.sampledBy(deckEditResponseStream), coreClickStream.sampledBy(deckNewResponseStream)]);
+var deckRequestStream = Kefir.merge([coreClickStream, coreClickStream.sampledBy(Kefir.merge([exampleSentenceDeckSubmitStream, deckEditResponseStream, deckNewResponseStream]))]);
+
+var entryAndCoreClickStream = coreClickStream.map(function (coreObj) {
+  return [null, coreObj];
+}).merge(Kefir.combine([entryClickStream], [coreClickStream]));
+
 var deckResponseStream = deckRequestStream.flatMap(function (corewordObj) {
   return Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/' + corewordObj.source.num));
 });
-deckResponseStream.merge(coreClickStream.map(function () {
+
+Kefir.combine([deckResponseStream.merge(deckRequestStream.map(function () {
   return null;
-})).onValue(function (deck, corewordObj) {
+})), entryAndCoreClickStream]).onValue(function (_ref7) {
+  var _ref72 = _slicedToArray(_ref7, 2);
+
+  var deck = _ref72[0];
+
+  var _ref72$1 = _slicedToArray(_ref72[1], 2);
+
+  var entryObj = _ref72$1[0];
+  var corewordObj = _ref72$1[1];
+
   if (deck === null) {
     d3.select('#deck ol').html('');
   } else {
+    if (entryObj) {
+      var headword = entryObj.headword;
+      var senseNum = entryObj.senseNum;
+    }
     d3.select('#deck ol').html('');
-    var data = d3.select('#deck ol').selectAll('li.deck-sentence').data(deck, function (deckObj) {
-      return deckObj.japanese;
-    });
-    data.exit().remove();
+    var data = d3.select('#deck ol').selectAll('li.deck-sentence').data(headword ? deck.filter(function (o) {
+      return o.group.senseNum === senseNum && o.group.headword === headword;
+    }) : deck);
     var sentences = data.enter().append('li').classed('deck-sentence', true).html(function (deckObj) {
       var furigana = veArrayToFuriganaMarkup(deckObj.ve);
       return furigana + ' ' + deckObj.english + '\n                              (s' + deckObj.group.senseNum + ') ';
