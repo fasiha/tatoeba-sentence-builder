@@ -5,7 +5,9 @@ var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = 
 // Debug variable that shouldn't contain anything
 var GLOB;
 
+//////////////////////////////////////////
 // SENTENCE-RELATED UTILITIES
+//////////////////////////////////////////
 function tonoDetailsCleanup(details) {
   return details.split('\n')[0].replace(/^[0-9]+ /, '');
 }
@@ -14,7 +16,9 @@ var hasKanji = function hasKanji(s) {
   return s.search(hanRegexp) >= 0;
 };
 
+//////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
+//////////////////////////////////////////
 var makePromisified = function makePromisified(method) {
   return function (url, obj) {
     return fetch(url, {
@@ -51,14 +55,18 @@ var jsonPromisifiedUncached = function jsonPromisifiedUncached(url, obj) {
   });
 };
 
+//////////////////////////////////////////
 // First things first: login?
+//////////////////////////////////////////
 jsonPromisified('/loginstatus').then(function (res) {
   if (!res) {
     window.location.assign('/');
   }
 });
 
+//////////////////////////////////////////
 // Pane 1: CORE WORDS
+//////////////////////////////////////////
 var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream = Kefir.fromEvents(document.querySelector('#more-core'), 'click');
 var coreResponseStream = coreStartStream.merge(moreCoreClickStream.scan(function (prev, next) {
@@ -86,7 +94,9 @@ var coreClickStream = Kefir.fromEvents(document.querySelector('#core-words ol'),
   return clickEvent.target.__data__;
 });
 
+//////////////////////////////////////////
 // Pane 2: DICTIONARY ENTRIES CORRESPONDING TO Pane 1 (CORE WORD) CLICKS
+//////////////////////////////////////////
 var dictResponseStream = coreClickStream.flatMap(function (coreword) {
   return Kefir.fromPromise(jsonPromisified('/v2/headwords/' + coreword.words.join(',')));
 });
@@ -123,7 +133,9 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
   }
 });
 
+//////////////////////////////////////////
 // Pane 3: EXAMPLE SENTENCES BASED ON Pane 2 (DICTIONARY) CLICKS
+//////////////////////////////////////////
 function clearSentences() {
   d3.select('#sentences ol').selectAll('li').remove();
   d3.select('#more-sentences').classed('no-display', true);
@@ -197,7 +209,9 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
   }
 });
 
+//////////////////////////////////////////
 // Pane 4: DECK SENTENCES
+//////////////////////////////////////////
 var exampleSentenceAddClickStream = Kefir.fromEvents(document.querySelector('#sentences'), 'click').filter(function (ev) {
   return ev.target.tagName.toLowerCase() === 'button' && ev.target.className.indexOf('add-to-deck') >= 0;
 }).map(function (ev) {
@@ -234,6 +248,7 @@ var deckButtonClickStream = deckClickStream.filter(function (ev) {
   return ev.target.tagName.toLowerCase() === 'button';
 });
 
+// New sentences
 var deckNewSentenceClickStream = deckButtonClickStream.filter(function (ev) {
   return ev.target.id === 'new-sentence';
 }).onValue(function (ev) {
@@ -280,6 +295,7 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
   return -1;
 });
 
+// Edit existing sentence
 var deckSentenceEditClickStream = deckButtonClickStream.filter(function (ev) {
   return ev.target.className.indexOf('edit-deck') >= 0;
 }).map(function (ev) {
@@ -289,14 +305,14 @@ deckSentenceEditClickStream.onValue(function (selection) {
   selection.select('button.edit-deck').classed('no-display', true);
   var deckObj = selection.datum();
   var editBox = selection.append('div').classed('edit-box', true);
-  var japanese = editBox.append('textarea').classed('edit-japanese', true).text(deckObj.japanese);
-  var english = editBox.append('textarea').classed('edit-english', true).text(deckObj.english);
+  editBox.append('textarea').classed('edit-japanese', true).text(deckObj.japanese);
+  editBox.append('textarea').classed('edit-english', true).text(deckObj.english);
   var furigana = editBox.append('ul').selectAll('li.furigana-list').data(deckObj.ve.filter(function (o) {
     return hasKanji(o.word);
   })).enter().append('li').classed('furigana-list', true).text(function (ve) {
     return ve.word + '：';
   });
-  var furiganaCorrection = furigana.append('input').classed('edit-furigana', true).attr({ type: 'text' }).attr('value', function (ve) {
+  furigana.append('input').classed('edit-furigana', true).attr({ type: 'text' }).attr('value', function (ve) {
     return ve.reading;
   });
   editBox.append('button').text('Submit').classed('done-editing', true);
@@ -341,6 +357,8 @@ var deckEditResponseStream = deckEdititedStream.flatMap(function (selection) {
   return -1; // Never happens
 });
 
+// When you add an example sentence, create a new sentence, or edit an existing
+// deck sentence, or just click on a coreword, refresh the deck.
 var deckRequestStream = Kefir.merge([coreClickStream, coreClickStream.sampledBy(exampleSentenceDeckSubmitStream), coreClickStream.sampledBy(deckEditResponseStream), coreClickStream.sampledBy(deckNewResponseStream)]);
 var deckResponseStream = deckRequestStream.flatMap(function (corewordObj) {
   return Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/' + corewordObj.source.num));

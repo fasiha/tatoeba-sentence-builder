@@ -2,14 +2,18 @@
 // Debug variable that shouldn't contain anything
 var GLOB;
 
+//////////////////////////////////////////
 // SENTENCE-RELATED UTILITIES
+//////////////////////////////////////////
 function tonoDetailsCleanup(details) {
   return details.split('\n')[0].replace(/^[0-9]+ /, '');
 }
 var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = s => s.search(hanRegexp) >= 0;
 
+//////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
+//////////////////////////////////////////
 var makePromisified = method =>
     ((url, obj) => fetch(url,
                          {
@@ -40,7 +44,9 @@ var jsonPromisifiedUncached = (url, obj) =>
         .then(res => res.json())
         .catch(ex => console.log('parsing failed', ex));
 
+//////////////////////////////////////////
 // First things first: login?
+//////////////////////////////////////////
 jsonPromisified('/loginstatus')
     .then(res => {
       if (!res) {
@@ -48,7 +54,9 @@ jsonPromisified('/loginstatus')
       }
     });
 
+//////////////////////////////////////////
 // Pane 1: CORE WORDS
+//////////////////////////////////////////
 var coreStartStream = Kefir.constant(1);
 var moreCoreClickStream =
     Kefir.fromEvents(document.querySelector('#more-core'), 'click');
@@ -81,7 +89,9 @@ var coreClickStream =
           return clickEvent.target.__data__;
         });
 
+//////////////////////////////////////////
 // Pane 2: DICTIONARY ENTRIES CORRESPONDING TO Pane 1 (CORE WORD) CLICKS
+//////////////////////////////////////////
 var dictResponseStream =
     coreClickStream.flatMap(coreword => Kefir.fromPromise(jsonPromisified(
                                 '/v2/headwords/' + coreword.words.join(','))));
@@ -125,7 +135,9 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(() => null))],
   }
 });
 
+//////////////////////////////////////////
 // Pane 3: EXAMPLE SENTENCES BASED ON Pane 2 (DICTIONARY) CLICKS
+//////////////////////////////////////////
 function clearSentences() {
   d3.select('#sentences ol').selectAll('li').remove();
   d3.select('#more-sentences').classed('no-display', true);
@@ -200,7 +212,9 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
   }
 });
 
+//////////////////////////////////////////
 // Pane 4: DECK SENTENCES
+//////////////////////////////////////////
 var exampleSentenceAddClickStream =
     Kefir.fromEvents(document.querySelector('#sentences'), 'click')
         .filter(ev => ev.target.tagName.toLowerCase() === 'button' &&
@@ -232,6 +246,7 @@ var deckClickStream =
 var deckButtonClickStream =
     deckClickStream.filter(ev => ev.target.tagName.toLowerCase() === 'button');
 
+// New sentences
 var deckNewSentenceClickStream =
     deckButtonClickStream.filter(ev => ev.target.id === 'new-sentence')
         .onValue((ev) =>
@@ -282,6 +297,7 @@ var deckNewResponseStream =
           return -1;
         });
 
+// Edit existing sentence
 var deckSentenceEditClickStream =
     deckButtonClickStream.filter(ev => ev.target.className.indexOf(
                                            'edit-deck') >= 0)
@@ -290,12 +306,12 @@ deckSentenceEditClickStream.onValue(selection => {
   selection.select('button.edit-deck').classed('no-display', true);
   var deckObj = selection.datum();
   var editBox = selection.append('div').classed('edit-box',true);
-  var japanese = editBox.append('textarea')
-                     .classed('edit-japanese', true)
-                     .text(deckObj.japanese);
-  var english = editBox.append('textarea')
-                    .classed('edit-english', true)
-                    .text(deckObj.english);
+  editBox.append('textarea')
+      .classed('edit-japanese', true)
+      .text(deckObj.japanese);
+  editBox.append('textarea')
+      .classed('edit-english', true)
+      .text(deckObj.english);
   var furigana = editBox.append('ul')
                      .selectAll('li.furigana-list')
                      .data(deckObj.ve.filter(o => hasKanji(o.word)))
@@ -303,10 +319,10 @@ deckSentenceEditClickStream.onValue(selection => {
                      .append('li')
                      .classed('furigana-list', true)
                      .text(ve => ve.word + '：');
-  var furiganaCorrection = furigana.append('input')
-                               .classed('edit-furigana', true)
-                               .attr({type : 'text'})
-                               .attr('value', ve => ve.reading);
+  furigana.append('input')
+      .classed('edit-furigana', true)
+      .attr({type : 'text'})
+      .attr('value', ve => ve.reading);
   editBox.append('button').text('Submit').classed('done-editing',true);
   editBox.append('button').text('Cancel').classed('done-editing',true);
   editBox.append('button').text('Delete').classed('done-editing',true);
@@ -346,6 +362,8 @@ var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
   return -1; // Never happens
 });
 
+// When you add an example sentence, create a new sentence, or edit an existing
+// deck sentence, or just click on a coreword, refresh the deck.
 var deckRequestStream = Kefir.merge([
   coreClickStream,
   coreClickStream.sampledBy(exampleSentenceDeckSubmitStream),
