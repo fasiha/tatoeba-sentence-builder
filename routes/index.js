@@ -189,7 +189,19 @@ router.put('/v2/deck/:id', passwordless.restricted(), function(req, res) {
       .then(function(connVe) {
         connection = connVe[0];
         var veResult = connVe[1];
-        // obj.ve = veResult;
+
+        var japaneseChanged = req.query.japaneseChanged;
+        if (typeof japaneseChanged === 'undefined') {
+          // Default: if we don't know, assume it's changed, overwrite furigana.
+          japaneseChanged = true;
+        } else {
+          // convert from string to bool
+          japaneseChanged = japaneseChanged === 'true';
+        }
+        if (japaneseChanged) {
+          obj.ve = veResult;
+        }
+
         return r.table(config.deckTable)
             .get(obj.id)
             .update(obj)

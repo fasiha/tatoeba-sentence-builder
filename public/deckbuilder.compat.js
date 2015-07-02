@@ -85,6 +85,7 @@ Kefir.combine([coreResponseStream], [allCorewordsStream]).onValue(function (_ref
   var corewords = _ref2[0];
   var allCorewords = _ref2[1];
 
+  // FIXME this is horrible.
   var coreToIdx = _.object(allCorewords.map(function (o) {
     return o.source.details;
   }), _.range(allCorewords.length));
@@ -343,7 +344,8 @@ var deckEditResponseStream = deckEdititedStream.flatMap(function (selection) {
     var parentTag = d3.select(selection.node().parentNode); // FIXME SUPER-FRAGILE!
     deckObj.english = parentTag.select('textarea.edit-english').property('value');
     var newJapanese = parentTag.select('textarea.edit-japanese').property('value');
-    deckObj.japanese = newJapanese === deckObj.japanese ? null : newJapanese;
+    var japaneseChanged = newJapanese !== deckObj.japanese;
+    deckObj.japanese = newJapanese;
     deckObj.modifiedTime = new Date();
 
     var furigana = parentTag.selectAll('input.edit-furigana')[0].map(function (node) {
@@ -355,7 +357,7 @@ var deckEditResponseStream = deckEdititedStream.flatMap(function (selection) {
     kanjiLemmas.forEach(function (ve, idx) {
       return ve.reading = furigana[idx];
     });
-    return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id, deckObj));
+    return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged, deckObj));
   } else if (button === 'Cancel') {
     parentNode.remove();
     return 0;

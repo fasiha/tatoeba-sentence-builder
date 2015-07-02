@@ -70,6 +70,7 @@ var allCorewordsStream =
 
 Kefir.combine([ coreResponseStream ], [ allCorewordsStream ])
     .onValue(([ corewords, allCorewords ]) => {
+      // FIXME this is horrible.
       var coreToIdx = _.object(allCorewords.map(o => o.source.details),
                           _.range(allCorewords.length));
       d3.select('#core-words-list')
@@ -356,14 +357,17 @@ var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
         parentTag.select('textarea.edit-english').property('value');
     var newJapanese =
         parentTag.select('textarea.edit-japanese').property('value');
-    deckObj.japanese = newJapanese === deckObj.japanese ? null : newJapanese;
+    var japaneseChanged = newJapanese !== deckObj.japanese;
+    deckObj.japanese = newJapanese;
     deckObj.modifiedTime = new Date();
 
     var furigana =
         parentTag.selectAll('input.edit-furigana')[0].map(node => node.value);
     var kanjiLemmas = deckObj.ve.filter(veObj => hasKanji(veObj.word));
     kanjiLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
-    return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id, deckObj));
+    return Kefir.fromPromise(putPromisified(
+        '/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged,
+        deckObj));
   } else if (button === 'Cancel') {
     parentNode.remove();
     return 0;
