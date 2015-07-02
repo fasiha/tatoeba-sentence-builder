@@ -55,6 +55,137 @@ jsonPromisified('/loginstatus')
       }
     });
 
+// Now, get the deck's contents
+var deckResponseStream = Kefir.constant(1).flatMap(
+    () => Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/')));
+
+// Bulk render! Just the function here.
+var deckResponseStreamFunction =
+    deck => {
+      // GLOB = deck;
+      /*
+      deck = _.sortBy(
+          _.values(_.mapValues(_.groupBy(GLOB, o => o.group.coreNum),
+                               (val, key) => {return {key : +key, val : val}})),
+          'key');*/
+      d3.selectAll('.just-edited').classed('just-edited', false);
+      var sentences =
+          d3.select('#content ol')
+              .selectAll('li.deck-sentence')
+              .data(deck, deckObj => deckObj.id)
+              .enter()
+              .append('li')
+              .classed('deck-sentence', true)
+              .classed('just-edited', deck.length > 1 ? false : true)
+              .attr('id', deckObj => 'id_' + deckObj.id)
+              .html(deckObj => {
+                var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+                return `${furigana} (${deckObj.english})`;
+              });
+      sentences.append('button').classed('edit-deck', true).text('?');
+
+      var objToNum = o => o.group.coreNum + o.group.num / 1e3;
+      d3.select('#content ol')
+          .selectAll('li.deck-sentence')
+          .sort((a, b) => objToNum(a) - objToNum(b));
+    }
+
+// FRP the buttons
+var clickStream = Kefir.fromEvents(document.querySelector('#content'), 'click');
+
+var buttonClickStream =
+    clickStream.filter(ev => ev.target.tagName.toLowerCase() === 'button');
+
+// When someone clicks "?" button: edit mode!
+var sentenceEditClickStream =
+    buttonClickStream.filter(ev =>
+                                 ev.target.className.indexOf('edit-deck') >= 0)
+        .map(ev => d3.select(ev.target.parentNode));  // FIXME FRAGILE!
+sentenceEditClickStream.onValue(selection => {
+  selection.select('button.edit-deck').classed('no-display', true);
+  var deckObj = selection.datum();
+  var editBox = selection.append('div').classed('edit-box', true);
+  editBox.append('textarea')
+      .classed('edit-japanese', true)
+      .text(deckObj.japanese);
+  editBox.append('textarea')
+      .classed('edit-english', true)
+      .text(deckObj.english);
+  var furigana = editBox.append('ul')
+                     .selectAll('li.furigana-list')
+                     .data(deckObj.ve.filter(o => hasKanji(o.word)))
+                     .enter()
+                     .append('li')
+                     .classed('furigana-list', true)
+                     .text(ve => ve.word + '：');
+  furigana.append('input')
+      .classed('edit-furigana', true)
+      .attr({type : 'text'})
+      .attr('value', ve => ve.reading);
+  editBox.append('button').text('Submit').classed('done-editing', true);
+  editBox.append('button').text('Cancel').classed('done-editing', true);
+  // editBox.append('button').text('Delete').classed('done-editing',true);
+  return selection;
+});
+
+// When someone's done editing: capture the click,
+var edititedStream = buttonClickStream.filter(ev => ev.target.className.indexOf(
+                                                        'done-editing') >= 0)
+                         .map(ev => d3.select(ev.target));
+// Put the result into the db
+var editResponseStream =
+    edititedStream
+        .flatMap(selection => {
+          var button = selection.text();
+          var parentNode = selection.node().parentNode;
+          var deckObj = parentNode.__data__;
+
+          if (button === 'Submit') {
+            var parentTag =
+                d3.select(selection.node().parentNode);  // FIXME SUPER-FRAGILE!
+            deckObj.english =
+                parentTag.select('textarea.edit-english').property('value');
+            var newJapanese =
+                parentTag.select('textarea.edit-japanese').property('value');
+            var japaneseChanged = newJapanese !== deckObj.japanese;
+            deckObj.japanese = newJapanese;
+            deckObj.modifiedTime = new Date();
+
+            var furigana = parentTag.selectAll('input.edit-furigana')[0].map(
+                node => node.value);
+            var kanjiLemmas = deckObj.ve.filter(veObj => hasKanji(veObj.word));
+            kanjiLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
+            return Kefir.fromPromise(
+                putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' +
+                                   japaneseChanged + '&returnChanges=true',
+                               deckObj));
+          } else if (button === 'Cancel') {
+            parentNode.remove();
+            return 0;
+          }          /* else if (button === 'Delete') {
+                      return Kefir.fromPromise(deletePromisified('/v2/deck/' +
+                    deckObj.id));
+                    }*/
+          return 0;  // Never happens
+        })
+        .filter()
+        .log();
+// Get the changes from the db, delete an element from DOM, and emit the object
+var cleanResponseStream =
+    editResponseStream.flatMap(response => {
+                        if (!response || !response.changes) {
+                          return 0;
+                        }
+
+                        var id = response.changes[0].new_val.id;
+                        d3.select('#id_' + id).remove();
+                        var ret = [ response.changes[0].new_val ];
+                        return Kefir.constant(ret);
+                      })
+        .filter();
+
+deckResponseStream.merge(cleanResponseStream)
+    .onValue(deckResponseStreamFunction);
 
 // FURIGANA UTILITIES
 function findPrePostfix(a, b) {
@@ -91,7 +222,8 @@ function veArrayToFuriganaMarkup(ves) {
                 return v.word;
               }
               return wordReadingToRuby(v.word, kataToHira(v.reading));
-            }).join('');
+            })
+      .join('');
 }
 
 function wordReadingToRuby(word, reading) {

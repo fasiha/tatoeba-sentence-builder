@@ -202,9 +202,16 @@ router.put('/v2/deck/:id', passwordless.restricted(), function(req, res) {
           obj.ve = veResult;
         }
 
+        var returnChanges = req.query.returnChanges;
+        if (typeof returnChanges === 'undefined') {
+          returnChanges = false;
+        } else {
+          returnChanges = returnChanges === 'true';
+        }
+
         return r.table(config.deckTable)
             .get(obj.id)
-            .update(obj)
+            .update(obj, {returnChanges : returnChanges})
             .run(connection, {durability : 'soft'});
       })
       .then(function(results) {
