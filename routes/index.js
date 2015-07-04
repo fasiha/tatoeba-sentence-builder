@@ -54,9 +54,8 @@ router.get('/v2/headwords/:words', passwordless.restricted(), function(req, res)
       })
       .then(function(results) {
         res.json(results);
-        return 1;//return connection.close();
+        return 1;
       })
-      //.catch(console.error.bind(console, 'Error thrown!'));
 });
 
 var requestDefaultToStartStop = function(req, def) {
@@ -65,29 +64,52 @@ var requestDefaultToStartStop = function(req, def) {
   var end = page ? Math.max(1, page) * def : def;
   return [ start, end ];
 };
-router.get('/v2/sentences/:headword/:sense', passwordless.restricted(), function(req, res) {
-  connectionPromise
-      .then(function(c) {
-        connection = c;
-        var defaultSize = 10;
-        var startEnd = requestDefaultToStartStop(req, defaultSize);
+router.get(
+    '/v2/sentences/:headword/:sense', passwordless.restricted(),
+    function(req, res) {
+      // Headword readings: if available, require one of these to be present in
+      // all sentences returned
+      var readings = (req.query.readings || '').split(',');
+      var headword =req.params.headword;
 
-        return r.db(config.dbName)
-            .table(config.examplesTable)
-            .between([ req.params.headword, +req.params.sense, r.minval ],
-                     [ req.params.headword, +req.params.sense, r.maxval ],
-                     {index : 'headwordsSenseNumChars'})
-            .orderBy({index : 'headwordsSenseNumChars'})
-            .slice(startEnd[0], startEnd[1])
-            .coerceTo('array')
-            .pluck('japanese', 'english', 'tags')
-            .run(connection);
-      })
-      .then(function(results) {
-        res.json(results);
-        return 1;//return connection.close();
-      })
-});
+      connectionPromise
+          .then(function(c) {
+            connection = c;
+            var defaultSize = 10;
+            var startEnd = requestDefaultToStartStop(req, defaultSize);
+
+            return r.db(config.dbName)
+                .table(config.examplesTable)
+                .between([ headword, +req.params.sense, r.minval ],
+                         [ headword, +req.params.sense, r.maxval ],
+                         {index : 'headwordsSenseNumChars'})
+                .orderBy({index : 'headwordsSenseNumChars'})
+                .filter(function(obj) {
+                  return readings.length
+                             ? obj('tags')
+                                   .filter(function(t) {
+                                     return t('headword').eq(headword)
+                                   })
+                                   .filter(function(tag) {
+                                     return r.expr(readings)
+                                         .contains(tag('reading'))
+                                         .or(r.expr(readings)
+                                                 .contains(tag('form')));
+                                   })
+                                   .isEmpty()
+                                   .not()
+                             : true;
+                })
+                .slice(startEnd[0], startEnd[1])
+                .coerceTo('array')
+                .pluck('japanese', 'english', 'tags')
+                .run(connection);
+          })
+          .then(function(results) {
+            res.json(results);
+            return 1;
+          })
+    });
 
 router.get('/v2/corewords', passwordless.restricted(), function(req, res) {
   connectionPromise.then(function(c) {
@@ -221,14 +243,13 @@ router.put('/v2/deck/:id', passwordless.restricted(), function(req, res) {
 });
 
 router.delete('/v2/deck/:id', passwordless.restricted(), function(req, res) {
-  connectionPromise
-      .then(function(c) {
-        connection = c;
-        return r.table(config.deckTable)
-            .get(req.params.id)
-            .delete()
-            .run(connection, {durability : 'soft'});
-      })
+  connectionPromise.then(function(c) {
+                     connection = c;
+                     return r.table(config.deckTable)
+                         .get(req.params.id)
+                         .delete()
+                         .run(connection, {durability : 'soft'});
+                   })
       .then(function(results) {
         res.json(results);
         return 1;

@@ -133,8 +133,8 @@ Kefir.combine([ dictResponseStream.merge(coreClickStream.map(() => null)) ],
                 .append('li')
                 .classed('dict-entry', true)
                 .text(entry => entry.headwords.join('・') +
-                               (entry.readings.length
-                                    ? ('・・' + entry.readings.join('・'))
+                               (entry.type === 'kanji'
+                                    ? ('；' + entry.readings.join('・'))
                                     : ''));
         headwordList.append('ol')
             .attr('start', 0)
@@ -169,9 +169,12 @@ var entryClickStream =
           d3.selectAll('li.clicked.sense-entry').classed('clicked', false);
           clickEvent.target.className += ' clicked';
 
-          var senseNum = senseObj.senseNum + 1,
-              headword = senseObj.entry.headwords[0];
-          return {headword, senseNum, page : 1};
+          return {
+            headword : senseObj.entry.headwords[0], // FIXME FIXME!
+            senseNum : senseObj.senseNum + 1,
+            entry : senseObj.entry,
+            page : 1
+          };
         })
         .filter();
 
@@ -195,9 +198,13 @@ var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream)
 
 var sentenceResponseStream =
     entryClickStream.merge(moreEntriesStream)
-        .flatMap(
-            ({headword, senseNum, page}) => Kefir.fromPromise(jsonPromisified(
-                `/v2/sentences/${headword}/${senseNum}/?page=${page}`)));
+        .flatMap(({headword, senseNum, page, entry}) => {
+          var readingsQuery = entry.type === 'reading'
+                                  ? ''
+                                  : `&readings=${entry.readings.join(',')}`;
+          return Kefir.fromPromise(jsonPromisified(
+              `/v2/sentences/${headword}/${senseNum}/?page=${page}${readingsQuery}`));
+        });
 
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
               [entryClickStream])
@@ -224,6 +231,12 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
     d3.select('button#new-sentence').classed('no-display',false);
 
     sentences.append('button').classed('add-to-deck', true).text('✓');
+    sentences.append('ul')
+        .selectAll('li')
+        .data(obj => obj.tags)
+        .enter()
+        .append('li')
+        .text(tag => tag.headword + '/' + tag.reading);
   }
 });
 

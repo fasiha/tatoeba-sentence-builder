@@ -139,7 +139,7 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
     clearSentences();
   } else {
     var headwordList = d3.select('#dictionary').append('ol').classed('headwords-list', true).selectAll('li.dict-entry').data(entries).enter().append('li').classed('dict-entry', true).text(function (entry) {
-      return entry.headwords.join('・') + (entry.readings.length ? '・・' + entry.readings.join('・') : '');
+      return entry.headwords.join('・') + (entry.type === 'kanji' ? '；' + entry.readings.join('・') : '');
     });
     headwordList.append('ol').attr('start', 0).classed('senses-list', true).selectAll('li.sense-entry').data(function (entry) {
       return ['(unspecified sense)'].concat(entry.senses).map(function (sense, i) {
@@ -166,9 +166,12 @@ var entryClickStream = Kefir.fromEvents(document.querySelector('#dictionary'), '
   d3.selectAll('li.clicked.sense-entry').classed('clicked', false);
   clickEvent.target.className += ' clicked';
 
-  var senseNum = senseObj.senseNum + 1,
-      headword = senseObj.entry.headwords[0];
-  return { headword: headword, senseNum: senseNum, page: 1 };
+  return {
+    headword: senseObj.entry.headwords[0], // FIXME FIXME!
+    senseNum: senseObj.senseNum + 1,
+    entry: senseObj.entry,
+    page: 1
+  };
 }).filter();
 
 //////////////////////////////////////////
@@ -191,7 +194,10 @@ var sentenceResponseStream = entryClickStream.merge(moreEntriesStream).flatMap(f
   var headword = _ref4.headword;
   var senseNum = _ref4.senseNum;
   var page = _ref4.page;
-  return Kefir.fromPromise(jsonPromisified('/v2/sentences/' + headword + '/' + senseNum + '/?page=' + page));
+  var entry = _ref4.entry;
+
+  var readingsQuery = entry.type === 'reading' ? '' : '&readings=' + entry.readings.join(',');
+  return Kefir.fromPromise(jsonPromisified('/v2/sentences/' + headword + '/' + senseNum + '/?page=' + page + readingsQuery));
 });
 
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
@@ -220,6 +226,11 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
     d3.select('button#new-sentence').classed('no-display', false);
 
     sentences.append('button').classed('add-to-deck', true).text('✓');
+    sentences.append('ul').selectAll('li').data(function (obj) {
+      return obj.tags;
+    }).enter().append('li').text(function (tag) {
+      return tag.headword + '/' + tag.reading;
+    });
   }
 });
 
