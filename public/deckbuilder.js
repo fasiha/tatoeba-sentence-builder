@@ -11,6 +11,9 @@ function tonoDetailsCleanup(details) {
 }
 var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = s => s.search(hanRegexp) >= 0;
+var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
+// If there's a single non-kana character, it needs furigana.
+var needsFurigana = s => s.search(nonKanaRegexp) >= 0;
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -326,7 +329,7 @@ deckSentenceEditClickStream.onValue(selection => {
       .text(deckObj.english);
   var furigana = editBox.append('ul')
                      .selectAll('li.furigana-list')
-                     .data(deckObj.ve.filter(o => hasKanji(o.word)))
+                     .data(deckObj.ve.filter(o => needsFurigana(o.word)))
                      .enter()
                      .append('li')
                      .classed('furigana-list', true)
@@ -363,8 +366,8 @@ var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
 
     var furigana =
         parentTag.selectAll('input.edit-furigana')[0].map(node => node.value);
-    var kanjiLemmas = deckObj.ve.filter(veObj => hasKanji(veObj.word));
-    kanjiLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
+    var furiganaLemmas = deckObj.ve.filter(veObj => needsFurigana(veObj.word));
+    furiganaLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
     return Kefir.fromPromise(putPromisified(
         '/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged,
         deckObj));
@@ -455,12 +458,10 @@ function findPrePostfix(a, b) {
   };
 }
 function veArrayToFuriganaMarkup(ves) {
-  return ves.map(v => {
-              if (v.word.search(hanRegexp) < 0) {
-                return v.word;
-              }
-              return wordReadingToRuby(v.word, kataToHira(v.reading));
-            }).join('');
+  return ves.map(v => needsFurigana(v.word)
+                          ? wordReadingToRuby(v.word, kataToHira(v.reading))
+                          : v.word)
+      .join('');
 }
 
 function wordReadingToRuby(word, reading) {

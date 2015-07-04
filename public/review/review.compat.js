@@ -13,6 +13,11 @@ var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = function hasKanji(s) {
   return s.search(hanRegexp) >= 0;
 };
+var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
+// If there's a single non-kana character, it needs furigana.
+var needsFurigana = function needsFurigana(s) {
+  return s.search(nonKanaRegexp) >= 0;
+};
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -69,29 +74,66 @@ var deckResponseStream = Kefir.constant(1).flatMap(function () {
 
 // Bulk render! Just the function here.
 var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
-  // GLOB = deck;
-  /*
-  deck = _.sortBy(
-      _.values(_.mapValues(_.groupBy(GLOB, o => o.group.coreNum),
-                           (val, key) => {return {key : +key, val : val}})),
-      'key');*/
+  GLOB = deck;
+  var groupByKeyVal = function groupByKeyVal() {
+    var _ref;
+
+    return _.values(_.mapValues((_ref = _).groupBy.apply(_ref, arguments), function (val, key) {
+      return { key: +key, val: val };
+    }));
+  };
+  var deck2 = _.sortBy(groupByKeyVal(GLOB, function (o) {
+    return o.group.coreNum;
+  }), 'key');
+  deck2 = deck2.slice(1);
+  deck2.forEach(function (kv) {
+    kv.val = groupByKeyVal(kv.val, function (obj) {
+      return obj.group.senseNum;
+    });
+  });
+
   d3.selectAll('.just-edited').classed('just-edited', false);
-  var sentences = d3.select('#content ol').selectAll('li.deck-sentence').data(deck, function (deckObj) {
-    return deckObj.id;
-  }).enter().append('li').classed('deck-sentence', true).classed('just-edited', deck.length > 1 ? false : true).attr('id', function (deckObj) {
-    return 'id_' + deckObj.id;
-  }).html(function (deckObj) {
+
+  var corewords = d3.select('#content').selectAll('div.coreword').data(deck2).enter().append('div').classed('coreword', true);
+  corewords.append('h2').text(function (coreKV) {
+    return coreKV.key;
+  });
+
+  var senses = corewords.selectAll('div.sense').data(function (coreKV) {
+    return coreKV.val;
+  }).enter().append('div').classed('sense', true);
+  senses.append('h3').text(function (senseKV) {
+    return senseKV.key;
+  });
+
+  var sentences = senses.selectAll('p.deck-sentence').data(function (senseKV) {
+    return senseKV.val;
+  }).enter().append('p').classed('deck-sentence', true).html(function (deckObj) {
     var furigana = veArrayToFuriganaMarkup(deckObj.ve);
     return furigana + ' (' + deckObj.english + ')';
   });
   sentences.append('button').classed('edit-deck', true).text('?');
-
-  var objToNum = function objToNum(o) {
-    return o.group.coreNum + o.group.num / 1e3;
-  };
-  d3.select('#content ol').selectAll('li.deck-sentence').sort(function (a, b) {
-    return objToNum(a) - objToNum(b);
-  });
+  /*
+        var sentences =
+            d3.select('#content ol')
+                .selectAll('li.deck-sentence')
+                .data(deck, deckObj => deckObj.id)
+                .enter()
+                .append('li')
+                .classed('deck-sentence', true)
+                .classed('just-edited', deck.length > 1 ? false : true)
+                .attr('id', deckObj => 'id_' + deckObj.id)
+                .html(deckObj => {
+                  var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+                  return `${furigana} (${deckObj.english})`;
+                });
+        sentences.append('button').classed('edit-deck', true).text('?');
+  
+        var objToNum = o => o.group.coreNum + o.group.num / 1e3;
+        d3.select('#content ol')
+            .selectAll('li.deck-sentence')
+            .sort((a, b) => objToNum(a) - objToNum(b));
+            */
 };
 
 // FRP the buttons
@@ -114,7 +156,7 @@ sentenceEditClickStream.onValue(function (selection) {
   editBox.append('textarea').classed('edit-japanese', true).text(deckObj.japanese);
   editBox.append('textarea').classed('edit-english', true).text(deckObj.english);
   var furigana = editBox.append('ul').selectAll('li.furigana-list').data(deckObj.ve.filter(function (o) {
-    return hasKanji(o.word);
+    return needsFurigana(o.word);
   })).enter().append('li').classed('furigana-list', true).text(function (ve) {
     return ve.word + '：';
   });
@@ -150,10 +192,10 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
     var furigana = parentTag.selectAll('input.edit-furigana')[0].map(function (node) {
       return node.value;
     });
-    var kanjiLemmas = deckObj.ve.filter(function (veObj) {
-      return hasKanji(veObj.word);
+    var furiganaLemmas = deckObj.ve.filter(function (veObj) {
+      return needsFurigana(veObj.word);
     });
-    kanjiLemmas.forEach(function (ve, idx) {
+    furiganaLemmas.forEach(function (ve, idx) {
       return ve.reading = furigana[idx];
     });
     return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged + '&returnChanges=true', deckObj));
@@ -178,6 +220,8 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
   return Kefir.constant(ret);
 }).filter();
 
+// Here finally is the stream that reacts to both the JSON deck dump and the
+// individual dumps due to edits.
 deckResponseStream.merge(cleanResponseStream).onValue(deckResponseStreamFunction);
 
 // FURIGANA UTILITIES
@@ -211,10 +255,7 @@ function findPrePostfix(a, b) {
 }
 function veArrayToFuriganaMarkup(ves) {
   return ves.map(function (v) {
-    if (v.word.search(hanRegexp) < 0) {
-      return v.word;
-    }
-    return wordReadingToRuby(v.word, kataToHira(v.reading));
+    return needsFurigana(v.word) ? wordReadingToRuby(v.word, kataToHira(v.reading)) : v.word;
   }).join('');
 }
 

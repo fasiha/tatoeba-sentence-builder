@@ -11,6 +11,9 @@ function tonoDetailsCleanup(details) {
 }
 var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = s => s.search(hanRegexp) >= 0;
+var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
+// If there's a single non-kana character, it needs furigana.
+var needsFurigana = s => s.search(nonKanaRegexp) >= 0;
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -62,13 +65,42 @@ var deckResponseStream = Kefir.constant(1).flatMap(
 // Bulk render! Just the function here.
 var deckResponseStreamFunction =
     deck => {
-      // GLOB = deck;
-      /*
-      deck = _.sortBy(
-          _.values(_.mapValues(_.groupBy(GLOB, o => o.group.coreNum),
-                               (val, key) => {return {key : +key, val : val}})),
-          'key');*/
+      GLOB = deck;
+      var groupByKeyVal = (...args) => _.values(_.mapValues(
+          _.groupBy(...args), (val, key) => { return {key : +key, val}; }));
+      var deck2 = _.sortBy(groupByKeyVal(GLOB, o => o.group.coreNum), 'key');
+      deck2 = deck2.slice(1);
+      deck2.forEach(
+          kv => { kv.val = groupByKeyVal(kv.val, obj => obj.group.senseNum); });
+
       d3.selectAll('.just-edited').classed('just-edited', false);
+
+      var corewords = d3.select('#content')
+                          .selectAll('div.coreword')
+                          .data(deck2)
+                          .enter()
+                          .append('div')
+                          .classed('coreword', true);
+      corewords.append('h2').text(coreKV => coreKV.key);
+
+      var senses = corewords.selectAll('div.sense')
+                       .data(coreKV => coreKV.val)
+                       .enter()
+                       .append('div')
+                       .classed('sense', true);
+      senses.append('h3').text(senseKV => senseKV.key);
+
+      var sentences = senses.selectAll('p.deck-sentence')
+                          .data(senseKV => senseKV.val)
+                          .enter()
+                          .append('p')
+                          .classed('deck-sentence', true)
+                          .html(deckObj => {
+                            var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+                            return `${furigana} (${deckObj.english})`;
+                          });
+      sentences.append('button').classed('edit-deck', true).text('?');
+/*
       var sentences =
           d3.select('#content ol')
               .selectAll('li.deck-sentence')
@@ -88,6 +120,7 @@ var deckResponseStreamFunction =
       d3.select('#content ol')
           .selectAll('li.deck-sentence')
           .sort((a, b) => objToNum(a) - objToNum(b));
+          */
     }
 
 // FRP the buttons
@@ -113,7 +146,7 @@ sentenceEditClickStream.onValue(selection => {
       .text(deckObj.english);
   var furigana = editBox.append('ul')
                      .selectAll('li.furigana-list')
-                     .data(deckObj.ve.filter(o => hasKanji(o.word)))
+                     .data(deckObj.ve.filter(o => needsFurigana(o.word)))
                      .enter()
                      .append('li')
                      .classed('furigana-list', true)
@@ -153,8 +186,8 @@ var editResponseStream =
 
             var furigana = parentTag.selectAll('input.edit-furigana')[0].map(
                 node => node.value);
-            var kanjiLemmas = deckObj.ve.filter(veObj => hasKanji(veObj.word));
-            kanjiLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
+            var furiganaLemmas = deckObj.ve.filter(veObj => needsFurigana(veObj.word));
+            furiganaLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
             return Kefir.fromPromise(
                 putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' +
                                    japaneseChanged + '&returnChanges=true',
@@ -184,6 +217,8 @@ var cleanResponseStream =
                       })
         .filter();
 
+// Here finally is the stream that reacts to both the JSON deck dump and the
+// individual dumps due to edits.
 deckResponseStream.merge(cleanResponseStream)
     .onValue(deckResponseStreamFunction);
 
@@ -217,12 +252,9 @@ function findPrePostfix(a, b) {
   };
 }
 function veArrayToFuriganaMarkup(ves) {
-  return ves.map(v => {
-              if (v.word.search(hanRegexp) < 0) {
-                return v.word;
-              }
-              return wordReadingToRuby(v.word, kataToHira(v.reading));
-            })
+  return ves.map(v => needsFurigana(v.word)
+                          ? wordReadingToRuby(v.word, kataToHira(v.reading))
+                          : v.word)
       .join('');
 }
 

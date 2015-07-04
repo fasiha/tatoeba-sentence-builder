@@ -16,6 +16,11 @@ var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = function hasKanji(s) {
   return s.search(hanRegexp) >= 0;
 };
+var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
+// If there's a single non-kana character, it needs furigana.
+var needsFurigana = function needsFurigana(s) {
+  return s.search(nonKanaRegexp) >= 0;
+};
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -317,7 +322,7 @@ deckSentenceEditClickStream.onValue(function (selection) {
   editBox.append('textarea').classed('edit-japanese', true).text(deckObj.japanese);
   editBox.append('textarea').classed('edit-english', true).text(deckObj.english);
   var furigana = editBox.append('ul').selectAll('li.furigana-list').data(deckObj.ve.filter(function (o) {
-    return hasKanji(o.word);
+    return needsFurigana(o.word);
   })).enter().append('li').classed('furigana-list', true).text(function (ve) {
     return ve.word + '：';
   });
@@ -351,10 +356,10 @@ var deckEditResponseStream = deckEdititedStream.flatMap(function (selection) {
     var furigana = parentTag.selectAll('input.edit-furigana')[0].map(function (node) {
       return node.value;
     });
-    var kanjiLemmas = deckObj.ve.filter(function (veObj) {
-      return hasKanji(veObj.word);
+    var furiganaLemmas = deckObj.ve.filter(function (veObj) {
+      return needsFurigana(veObj.word);
     });
-    kanjiLemmas.forEach(function (ve, idx) {
+    furiganaLemmas.forEach(function (ve, idx) {
       return ve.reading = furigana[idx];
     });
     return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged, deckObj));
@@ -440,10 +445,7 @@ function findPrePostfix(a, b) {
 }
 function veArrayToFuriganaMarkup(ves) {
   return ves.map(function (v) {
-    if (v.word.search(hanRegexp) < 0) {
-      return v.word;
-    }
-    return wordReadingToRuby(v.word, kataToHira(v.reading));
+    return needsFurigana(v.word) ? wordReadingToRuby(v.word, kataToHira(v.reading)) : v.word;
   }).join('');
 }
 
