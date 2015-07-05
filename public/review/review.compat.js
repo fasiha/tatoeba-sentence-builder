@@ -79,29 +79,47 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     var _ref;
 
     return _.values(_.mapValues((_ref = _).groupBy.apply(_ref, arguments), function (val, key) {
-      return { key: +key, val: val };
+      return { key: key, val: val };
     }));
   };
   var deck2 = _.sortBy(groupByKeyVal(GLOB, function (o) {
     return o.group.coreNum;
-  }), 'key');
+  }), function (o) {
+    return +o.key;
+  });
+
   deck2 = deck2.slice(1);
-  deck2.forEach(function (kv) {
-    kv.val = groupByKeyVal(kv.val, function (obj) {
-      return obj.group.senseNum;
+  deck2.forEach(function (kvCore) {
+    kvCore.val = groupByKeyVal(kvCore.val, function (obj) {
+      return obj.group.headwords.join(',');
+    });
+    kvCore.val.forEach(function (kvHead) {
+      kvHead.val = _.sortBy(groupByKeyVal(kvHead.val, function (obj) {
+        return obj.group.senseNum;
+      }), function (o) {
+        return +o.key;
+      });
     });
   });
+
   d3.selectAll('.just-edited').classed('just-edited', false);
 
   var corewords = d3.select('#content').selectAll('div.coreword').data(deck2).enter().append('div').classed('coreword', true);
   corewords.append('h2').text(function (coreKV) {
-    return coreKV.key;
+    return '#' + coreKV.key;
   });
 
-  var senses = corewords.selectAll('div.sense').data(function (coreKV) {
+  var headwords = corewords.selectAll('div.headwords').data(function (coreKV) {
     return coreKV.val;
-  }).enter().append('div').classed('sense', true);
-  senses.append('h3').text(function (senseKV) {
+  }).enter().append('div').classed('headwords', true);
+  headwords.append('h3').text(function (headwordKV) {
+    return headwordKV.key;
+  });
+
+  var senses = headwords.selectAll('div.senses').data(function (headwordKV) {
+    return headwordKV.val;
+  }).enter().append('div').classed('senses', true);
+  senses.append('h4').text(function (senseKV) {
     return senseKV.key;
   });
 

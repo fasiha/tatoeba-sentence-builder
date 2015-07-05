@@ -67,11 +67,21 @@ var deckResponseStreamFunction =
     deck => {
       GLOB = deck;
       var groupByKeyVal = (...args) => _.values(_.mapValues(
-          _.groupBy(...args), (val, key) => { return {key : +key, val}; }));
-      var deck2 = _.sortBy(groupByKeyVal(GLOB, o => o.group.coreNum), 'key');
+          _.groupBy(...args), (val, key) => { return {key : key, val}; }));
+      var deck2 =
+          _.sortBy(groupByKeyVal(GLOB, o => o.group.coreNum), o => +o.key);
+
       deck2 = deck2.slice(1);
-      deck2.forEach(
-          kv => { kv.val = groupByKeyVal(kv.val, obj => obj.group.senseNum); });
+      deck2.forEach(kvCore => {
+        kvCore.val =
+            groupByKeyVal(kvCore.val, obj => obj.group.headwords.join(','));
+        kvCore.val.forEach(kvHead => {
+          kvHead.val =
+              _.sortBy(groupByKeyVal(kvHead.val, obj => obj.group.senseNum),
+                       o => +o.key);
+        });
+      });
+      
       d3.selectAll('.just-edited').classed('just-edited', false);
 
       var corewords = d3.select('#content')
@@ -80,14 +90,21 @@ var deckResponseStreamFunction =
                           .enter()
                           .append('div')
                           .classed('coreword', true);
-      corewords.append('h2').text(coreKV => coreKV.key);
+      corewords.append('h2').text(coreKV => `#${coreKV.key}`);
 
-      var senses = corewords.selectAll('div.sense')
+      var headwords = corewords.selectAll('div.headwords')
                        .data(coreKV => coreKV.val)
                        .enter()
                        .append('div')
-                       .classed('sense', true);
-      senses.append('h3').text(senseKV => senseKV.key);
+                       .classed('headwords', true);
+      headwords.append('h3').text(headwordKV => headwordKV.key);
+      
+      var senses = headwords.selectAll('div.senses')
+                       .data(headwordKV => headwordKV.val)
+                       .enter()
+                       .append('div')
+                       .classed('senses', true);
+      senses.append('h4').text(senseKV => senseKV.key);
 
       var sentences = senses.selectAll('p.deck-sentence')
                           .data(senseKV => senseKV.val)
