@@ -60,7 +60,7 @@ jsonPromisified('/loginstatus')
 
 // Now, get the deck's contents
 var deckResponseStream = Kefir.constant(1).flatMap(
-    () => Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/')));
+    () => Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/?extra=true')));
 
 // Bulk render! Just the function here.
 var deckResponseStreamFunction =
@@ -72,7 +72,6 @@ var deckResponseStreamFunction =
       deck2 = deck2.slice(1);
       deck2.forEach(
           kv => { kv.val = groupByKeyVal(kv.val, obj => obj.group.senseNum); });
-
       d3.selectAll('.just-edited').classed('just-edited', false);
 
       var corewords = d3.select('#content')
@@ -100,7 +99,7 @@ var deckResponseStreamFunction =
                             return `${furigana} (${deckObj.english})`;
                           });
       sentences.append('button').classed('edit-deck', true).text('?');
-/*
+      /*
       var sentences =
           d3.select('#content ol')
               .selectAll('li.deck-sentence')
@@ -134,6 +133,7 @@ var sentenceEditClickStream =
     buttonClickStream.filter(ev =>
                                  ev.target.className.indexOf('edit-deck') >= 0)
         .map(ev => d3.select(ev.target.parentNode));  // FIXME FRAGILE!
+
 sentenceEditClickStream.onValue(selection => {
   selection.select('button.edit-deck').classed('no-display', true);
   var deckObj = selection.datum();
@@ -158,6 +158,7 @@ sentenceEditClickStream.onValue(selection => {
   editBox.append('button').text('Submit').classed('done-editing', true);
   editBox.append('button').text('Cancel').classed('done-editing', true);
   // editBox.append('button').text('Delete').classed('done-editing',true);
+ // editBox.append('select').selectAll('option').data()
   return selection;
 });
 

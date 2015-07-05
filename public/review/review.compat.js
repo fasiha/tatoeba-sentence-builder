@@ -69,7 +69,7 @@ jsonPromisified('/loginstatus').then(function (res) {
 
 // Now, get the deck's contents
 var deckResponseStream = Kefir.constant(1).flatMap(function () {
-  return Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/'));
+  return Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/?extra=true'));
 });
 
 // Bulk render! Just the function here.
@@ -91,7 +91,6 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
       return obj.group.senseNum;
     });
   });
-
   d3.selectAll('.just-edited').classed('just-edited', false);
 
   var corewords = d3.select('#content').selectAll('div.coreword').data(deck2).enter().append('div').classed('coreword', true);
@@ -114,26 +113,25 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
   });
   sentences.append('button').classed('edit-deck', true).text('?');
   /*
-        var sentences =
-            d3.select('#content ol')
-                .selectAll('li.deck-sentence')
-                .data(deck, deckObj => deckObj.id)
-                .enter()
-                .append('li')
-                .classed('deck-sentence', true)
-                .classed('just-edited', deck.length > 1 ? false : true)
-                .attr('id', deckObj => 'id_' + deckObj.id)
-                .html(deckObj => {
-                  var furigana = veArrayToFuriganaMarkup(deckObj.ve);
-                  return `${furigana} (${deckObj.english})`;
-                });
-        sentences.append('button').classed('edit-deck', true).text('?');
-  
-        var objToNum = o => o.group.coreNum + o.group.num / 1e3;
-        d3.select('#content ol')
-            .selectAll('li.deck-sentence')
-            .sort((a, b) => objToNum(a) - objToNum(b));
-            */
+  var sentences =
+      d3.select('#content ol')
+          .selectAll('li.deck-sentence')
+          .data(deck, deckObj => deckObj.id)
+          .enter()
+          .append('li')
+          .classed('deck-sentence', true)
+          .classed('just-edited', deck.length > 1 ? false : true)
+          .attr('id', deckObj => 'id_' + deckObj.id)
+          .html(deckObj => {
+            var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+            return `${furigana} (${deckObj.english})`;
+          });
+  sentences.append('button').classed('edit-deck', true).text('?');
+   var objToNum = o => o.group.coreNum + o.group.num / 1e3;
+  d3.select('#content ol')
+      .selectAll('li.deck-sentence')
+      .sort((a, b) => objToNum(a) - objToNum(b));
+      */
 };
 
 // FRP the buttons
@@ -149,6 +147,7 @@ var sentenceEditClickStream = buttonClickStream.filter(function (ev) {
 }).map(function (ev) {
   return d3.select(ev.target.parentNode);
 }); // FIXME FRAGILE!
+
 sentenceEditClickStream.onValue(function (selection) {
   selection.select('button.edit-deck').classed('no-display', true);
   var deckObj = selection.datum();
@@ -166,6 +165,7 @@ sentenceEditClickStream.onValue(function (selection) {
   editBox.append('button').text('Submit').classed('done-editing', true);
   editBox.append('button').text('Cancel').classed('done-editing', true);
   // editBox.append('button').text('Delete').classed('done-editing',true);
+  // editBox.append('select').selectAll('option').data()
   return selection;
 });
 

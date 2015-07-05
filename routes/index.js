@@ -70,7 +70,7 @@ router.get(
       // Headword readings: if available, require one of these to be present in
       // all sentences returned
       var readings = (req.query.readings || '').split(',');
-      var headword =req.params.headword;
+      var headword = req.params.headword;
 
       connectionPromise
           .then(function(c) {
@@ -131,8 +131,33 @@ router.get('/v2/corewords', passwordless.restricted(), function(req, res) {
 });
 
 router.get('/v2/deck', passwordless.restricted(), function(req, res) {
+  var extraData = (req.query.extra || '') === 'true';
+
   connectionPromise.then(function(c) {
                      connection = c;
+                     if (extraData) {
+                       return r.table(config.deckTable)
+                           .orderBy({index : "groupNums"})
+                           .map(o => o.merge(
+                                    r.object('corewordData',
+                                             r.table(config.corewordsTable)
+                                                 .getAll(o('group')('coreNum'),
+                                                         {index : 'sourceNum'})
+                                                 .nth(0))))
+                           .map(o => o.merge(r.object(
+                                    'dictionaryData',
+                                    r.table(config.headwordsTable)
+                                        .getAll(
+                                            r.args(o('corewordData')('words')),
+                                            {index : 'headwords'})
+                                        .distinct())))
+                           /*
+                           .group(r.row('group')('coreNum'),
+                                  r.row('group')('senseNum'))
+                           */
+                           .coerceTo('array')
+                           .run(connection);
+                     }
                      return r.table(config.deckTable)
                          .orderBy({index : "groupNums"})
                          .without('modifiedTime')

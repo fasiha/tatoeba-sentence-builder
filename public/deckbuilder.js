@@ -170,7 +170,7 @@ var entryClickStream =
           clickEvent.target.className += ' clicked';
 
           return {
-            headword : senseObj.entry.headwords[0], // FIXME FIXME!
+            headwords : senseObj.entry.headwords, // FIXME FIXME!
             senseNum : senseObj.senseNum + 1,
             entry : senseObj.entry,
             page : 1
@@ -198,23 +198,23 @@ var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream)
 
 var sentenceResponseStream =
     entryClickStream.merge(moreEntriesStream)
-        .flatMap(({headword, senseNum, page, entry}) => {
+        .flatMap(({headwords, senseNum, page, entry}) => {
           var readingsQuery = entry.type === 'reading'
                                   ? ''
                                   : `&readings=${entry.readings.join(',')}`;
           return Kefir.fromPromise(jsonPromisified(
-              `/v2/sentences/${headword}/${senseNum}/?page=${page}${readingsQuery}`));
+              `/v2/sentences/${headwords[0]}/${senseNum}/?page=${page}${readingsQuery}`));
         });
 
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(() => null))],
               [entryClickStream])
-    .onValue(function([ sentences, {headword, senseNum} ]) {
+    .onValue(function([ sentences, {headwords, senseNum} ]) {
   if (sentences === null) {
     clearSentences();
   } else if (sentences.length === 0) {
     d3.select('#sentences ol')
         .append('li')
-        .text('No sentences found for headword “' + headword + "”, sense #" +
+        .text('No sentences found for headword “' + headwords[0] + "”, sense #" +
               senseNum);
     d3.select('button#new-sentence').classed('no-display',false);
   } else {
@@ -252,7 +252,7 @@ var exampleSentenceAddClickStream =
 var exampleSentenceDeckSubmitStream =
     Kefir.combine([exampleSentenceAddClickStream],
                   [ entryClickStream, coreClickStream ])
-        .flatMap(([ sentenceObj, {headword, senseNum}, coreword ]) => {
+        .flatMap(([ sentenceObj, {headwords, senseNum}, coreword ]) => {
           // Server shouldn't send sentence document's ID but be careful. This
           // is a new sentence, NOT an edit.
           sentenceObj = _.omit(sentenceObj, 'id');
@@ -260,7 +260,7 @@ var exampleSentenceDeckSubmitStream =
           sentenceObj.ve = [];
           sentenceObj.group = {
             coreNum : coreword.source.num,
-            num : -1, headword, senseNum
+            num : -1, headwords, senseNum
           };
           sentenceObj.globalNum = -1;
           sentenceObj.modifiedTime = new Date();
@@ -301,7 +301,7 @@ var deckDoneNewClickStream = deckButtonClickStream.filter(
 var deckNewResponseStream =
     Kefir.combine([ deckDoneNewClickStream ],
                   [ entryClickStream, coreClickStream ])
-        .flatMap(([ ev, {headword, senseNum}, coreword ]) => {
+        .flatMap(([ ev, {headwords, senseNum}, coreword ]) => {
           var div = d3.select(ev.target.parentNode);
           var button = ev.target.innerHTML;
           console.log(button)
@@ -314,7 +314,7 @@ var deckNewResponseStream =
               modifiedTime : new Date(),
               group : {
                 coreNum : coreword.source.num,
-                num : -1, headword, senseNum
+                num : -1, headwords, senseNum
               }
             };
             return Kefir.fromPromise(postPromisified('/v2/deck', obj));
@@ -416,10 +416,11 @@ var deckResponseStream = deckRequestStream.flatMap(
 Kefir.combine([ deckResponseStream, entryAndCoreClickStream ])
     .onValue(([ deck, [ entryObj, corewordObj ] ]) => {
       if (entryObj) {
-        var {headword, senseNum} = entryObj;
+        var {headwords, senseNum} = entryObj;
         // Sense-matching deck entries come first, then non-matching
-        deck = _.flatten(_.partition(deck, o => o.group.senseNum === senseNum &&
-                                                o.group.headword === headword));
+        deck = _.flatten(_.partition(
+            deck, o => o.group.senseNum === senseNum &&
+                       o.group.headwords.join(',') === headwords.join(',')));
       }
       d3.select('#deck ol').html('');
       var sentences = d3.select('#deck ol')
@@ -429,9 +430,10 @@ Kefir.combine([ deckResponseStream, entryAndCoreClickStream ])
                           .append('li')
                           .classed('deck-sentence', true)
                           .classed('off-sense',
-                                   headword
+                                   headwords
                                        ? o => !(o.group.senseNum === senseNum &&
-                                                o.group.headword === headword)
+                                                o.group.headwords.join(',') ===
+                                                headwords.join(','))
                                        : false)
                           .html(deckObj => {
                             var furigana = veArrayToFuriganaMarkup(deckObj.ve);

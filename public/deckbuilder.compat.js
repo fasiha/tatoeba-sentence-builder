@@ -167,7 +167,7 @@ var entryClickStream = Kefir.fromEvents(document.querySelector('#dictionary'), '
   clickEvent.target.className += ' clicked';
 
   return {
-    headword: senseObj.entry.headwords[0], // FIXME FIXME!
+    headwords: senseObj.entry.headwords, // FIXME FIXME!
     senseNum: senseObj.senseNum + 1,
     entry: senseObj.entry,
     page: 1
@@ -191,13 +191,13 @@ var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream).map
 });
 
 var sentenceResponseStream = entryClickStream.merge(moreEntriesStream).flatMap(function (_ref4) {
-  var headword = _ref4.headword;
+  var headwords = _ref4.headwords;
   var senseNum = _ref4.senseNum;
   var page = _ref4.page;
   var entry = _ref4.entry;
 
   var readingsQuery = entry.type === 'reading' ? '' : '&readings=' + entry.readings.join(',');
-  return Kefir.fromPromise(jsonPromisified('/v2/sentences/' + headword + '/' + senseNum + '/?page=' + page + readingsQuery));
+  return Kefir.fromPromise(jsonPromisified('/v2/sentences/' + headwords[0] + '/' + senseNum + '/?page=' + page + readingsQuery));
 });
 
 Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
@@ -207,13 +207,13 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
 
   var sentences = _ref52[0];
   var _ref52$1 = _ref52[1];
-  var headword = _ref52$1.headword;
+  var headwords = _ref52$1.headwords;
   var senseNum = _ref52$1.senseNum;
 
   if (sentences === null) {
     clearSentences();
   } else if (sentences.length === 0) {
-    d3.select('#sentences ol').append('li').text('No sentences found for headword “' + headword + '”, sense #' + senseNum);
+    d3.select('#sentences ol').append('li').text('No sentences found for headword “' + headwords[0] + '”, sense #' + senseNum);
     d3.select('button#new-sentence').classed('no-display', false);
   } else {
     var sentences = d3.select('#sentences ol').selectAll('li.sentence').data(sentences, function (obj) {
@@ -248,7 +248,7 @@ var exampleSentenceDeckSubmitStream = Kefir.combine([exampleSentenceAddClickStre
 
   var sentenceObj = _ref62[0];
   var _ref62$1 = _ref62[1];
-  var headword = _ref62$1.headword;
+  var headwords = _ref62$1.headwords;
   var senseNum = _ref62$1.senseNum;
   var coreword = _ref62[2];
 
@@ -259,7 +259,7 @@ var exampleSentenceDeckSubmitStream = Kefir.combine([exampleSentenceAddClickStre
   sentenceObj.ve = [];
   sentenceObj.group = {
     coreNum: coreword.source.num,
-    num: -1, headword: headword, senseNum: senseNum
+    num: -1, headwords: headwords, senseNum: senseNum
   };
   sentenceObj.globalNum = -1;
   sentenceObj.modifiedTime = new Date();
@@ -293,7 +293,7 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
 
   var ev = _ref72[0];
   var _ref72$1 = _ref72[1];
-  var headword = _ref72$1.headword;
+  var headwords = _ref72$1.headwords;
   var senseNum = _ref72$1.senseNum;
   var coreword = _ref72[2];
 
@@ -309,7 +309,7 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
       modifiedTime: new Date(),
       group: {
         coreNum: coreword.source.num,
-        num: -1, headword: headword, senseNum: senseNum
+        num: -1, headwords: headwords, senseNum: senseNum
       }
     };
     return Kefir.fromPromise(postPromisified('/v2/deck', obj));
@@ -407,17 +407,17 @@ Kefir.combine([deckResponseStream, entryAndCoreClickStream]).onValue(function (_
   var corewordObj = _ref82$1[1];
 
   if (entryObj) {
-    var headword = entryObj.headword;
+    var headwords = entryObj.headwords;
     var senseNum = entryObj.senseNum;
 
     // Sense-matching deck entries come first, then non-matching
     deck = _.flatten(_.partition(deck, function (o) {
-      return o.group.senseNum === senseNum && o.group.headword === headword;
+      return o.group.senseNum === senseNum && o.group.headwords.join(',') === headwords.join(',');
     }));
   }
   d3.select('#deck ol').html('');
-  var sentences = d3.select('#deck ol').selectAll('li.deck-sentence').data(deck).enter().append('li').classed('deck-sentence', true).classed('off-sense', headword ? function (o) {
-    return !(o.group.senseNum === senseNum && o.group.headword === headword);
+  var sentences = d3.select('#deck ol').selectAll('li.deck-sentence').data(deck).enter().append('li').classed('deck-sentence', true).classed('off-sense', headwords ? function (o) {
+    return !(o.group.senseNum === senseNum && o.group.headwords.join(',') === headwords.join(','));
   } : false).html(function (deckObj) {
     var furigana = veArrayToFuriganaMarkup(deckObj.ve);
     return furigana + ' ' + deckObj.english + '\n                              (s' + deckObj.group.senseNum + ') ';
