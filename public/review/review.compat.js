@@ -277,6 +277,7 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
 
         return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged + '&returnChanges=true', deckObj));
     } else if (button === 'Cancel') {
+        d3.select(parentNode.parentNode).select('button.edit-deck').classed('no-display', false);
         parentNode.remove();
         return 0;
     } /* else if (button === 'Delete') {

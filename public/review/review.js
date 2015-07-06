@@ -244,9 +244,8 @@ var editResponseStream =
           var deckObj = parentNode.__data__;
 
           if (button === 'Submit') {
-            var parentTag =
-                d3.select(parentNode);  // FIXME SUPER-FRAGILE!
-            
+            var parentTag = d3.select(parentNode);  // FIXME SUPER-FRAGILE!
+
             /*
             var headwordsSenseNum = deckObjToHeadwordSense(
                 deckObj, parentTag.select('select').property('selectedIndex'));
@@ -274,6 +273,9 @@ var editResponseStream =
                                    japaneseChanged + '&returnChanges=true',
                                deckObj));
           } else if (button === 'Cancel') {
+            d3.select(parentNode.parentNode)
+                .select('button.edit-deck')
+                .classed('no-display', false);
             parentNode.remove();
             return 0;
           }          /* else if (button === 'Delete') {
