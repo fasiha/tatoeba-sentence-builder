@@ -65,13 +65,13 @@ var deckResponseStream = Kefir.constant(1).flatMap(
 // Bulk render! Just the function here.
 var deckResponseStreamFunction =
     deck => {
-      GLOB = deck;
       var groupByKeyVal = (...args) => _.values(_.mapValues(
           _.groupBy(...args), (val, key) => { return {key : key, val}; }));
       var deck2 =
-          _.sortBy(groupByKeyVal(GLOB, o => o.group.coreNum), o => +o.key);
+          _.sortBy(groupByKeyVal(deck, o => o.group.coreNum), o => +o.key);
 
-      deck2 = deck2.slice(1);
+      // deck2 = deck2.filter(o => o.key !== "-1");
+
       deck2.forEach(kvCore => {
         kvCore.val =
             groupByKeyVal(kvCore.val, obj => obj.group.headwords.join(','));
@@ -81,41 +81,67 @@ var deckResponseStreamFunction =
                        o => +o.key);
         });
       });
+      GLOB = deck2;
       
       d3.selectAll('.just-edited').classed('just-edited', false);
 
-      var corewords = d3.select('#content')
-                          .selectAll('div.coreword')
-                          .data(deck2)
-                          .enter()
-                          .append('div')
-                          .classed('coreword', true);
-      corewords.append('h2').text(coreKV => `#${coreKV.key}`);
+      var corewords = d3.select('#content').selectAll('div.coreword');
+      corewords.data(deck2, d => `corenum-${d.key}`)
+          .enter()
+          .append('div')
+          .classed('coreword', true)
+          .append('h2')
+          .text(
+              coreKV =>
+                  '#' +
+                  (_.get(coreKV,
+                         'val[0].val[0].val[0].corewordData.source.details') ||
+                   '')
+                      .split('\n')[0]);
+      corewords = d3.select('#content').selectAll('div.coreword');
 
-      var headwords = corewords.selectAll('div.headwords')
-                       .data(coreKV => coreKV.val)
-                       .enter()
-                       .append('div')
-                       .classed('headwords', true);
-      headwords.append('h3').text(headwordKV => headwordKV.key);
-      
-      var senses = headwords.selectAll('div.senses')
-                       .data(headwordKV => headwordKV.val)
-                       .enter()
-                       .append('div')
-                       .classed('senses', true);
-      senses.append('h4').text(senseKV => senseKV.key);
 
-      var sentences = senses.selectAll('p.deck-sentence')
-                          .data(senseKV => senseKV.val)
-                          .enter()
-                          .append('p')
-                          .classed('deck-sentence', true)
-                          .html(deckObj => {
-                            var furigana = veArrayToFuriganaMarkup(deckObj.ve);
-                            return `${furigana} (${deckObj.english})`;
-                          });
+      var headwords =
+          corewords.selectAll('div.headword');
+      headwords.data(coreKV => coreKV.val, d => `headwords-${d.key}`)
+          .enter()
+          .append('div')
+          .classed('headword', true)
+          .append('h3')
+          .text(headwordKV => headwordKV.key.split(',').join('・'));
+      headwords =
+          corewords.selectAll('div.headword');
+
+      var senses = headwords.selectAll('div.sense');
+      senses.data(headwordKV => headwordKV.val, d => `sensenum-${d.key}`)
+          .enter()
+          .append('div')
+          .classed('sense', true)
+          .append('h4')
+          .text(senseKV => senseKV.key);
+      senses = headwords.selectAll('div.sense');
+
+      var sentences =
+          senses.selectAll('p.deck-sentence')
+              .data(senseKV => senseKV.val, d => d.id)
+              .enter()
+              .append('p')
+              .classed('deck-sentence', true)
+              .classed('just-edited', deck.length > 1 ? false : true)
+              .attr('id', deckObj => 'id_' + deckObj.id)
+              .html(deckObj => {
+                var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+                return `${furigana} (${deckObj.english})`;
+              });
       sentences.append('button').classed('edit-deck', true).text('?');
+
+      var objToNum = o => o.group.num ;
+      d3.select('#content')
+          .selectAll('div.coreword')
+          .selectAll('div.headword')
+          .selectAll('div.sense')
+          .selectAll('p.deck-sentence')
+          .sort((a, b) => objToNum(a) - objToNum(b));
       /*
       var sentences =
           d3.select('#content ol')
@@ -152,9 +178,11 @@ var sentenceEditClickStream =
         .map(ev => d3.select(ev.target.parentNode));  // FIXME FRAGILE!
 
 sentenceEditClickStream.onValue(selection => {
+  // GLOB = selection;
   selection.select('button.edit-deck').classed('no-display', true);
   var deckObj = selection.datum();
   var editBox = selection.append('div').classed('edit-box', true);
+  
   editBox.append('textarea')
       .classed('edit-japanese', true)
       .text(deckObj.japanese);
@@ -172,13 +200,37 @@ sentenceEditClickStream.onValue(selection => {
       .classed('edit-furigana', true)
       .attr({type : 'text'})
       .attr('value', ve => ve.reading);
+
+  /*
+  var dictionaryList = deckObjectToHeadwordSenseList(deckObj);
+  editBox.append('select')
+      .selectAll('option')
+      .data(dictionaryList)
+      .enter()
+      .append('option')
+      .text(d => d)
+  editBox.append('br');
+  */
+
   editBox.append('button').text('Submit').classed('done-editing', true);
   editBox.append('button').text('Cancel').classed('done-editing', true);
   // editBox.append('button').text('Delete').classed('done-editing',true);
- // editBox.append('select').selectAll('option').data()
+
   return selection;
 });
-
+function deckObjectToHeadwordSenseList(deckObj) {
+  return _.flatten(deckObj.dictionaryData.map(
+      (o, oi) => o.senses.map(
+          (s, i) =>
+              `Headword ${oi+1}. ${o.headwords.concat(o.type === 'kanji' ? o.readings : []).join('・')} (sense ${i+1}) ${s}`)));
+}
+function deckObjToHeadwordSense(deckObj, idx){
+  var listOfOptions = _.flatten(deckObj.dictionaryData.map(
+      (o, i) =>
+          _.range(o.senses.length)
+              .map(x => {return {headwords : o.headwords, senseNum : x}})));
+  return listOfOptions[idx];
+}
 // When someone's done editing: capture the click,
 var edititedStream = buttonClickStream.filter(ev => ev.target.className.indexOf(
                                                         'done-editing') >= 0)
@@ -193,7 +245,16 @@ var editResponseStream =
 
           if (button === 'Submit') {
             var parentTag =
-                d3.select(selection.node().parentNode);  // FIXME SUPER-FRAGILE!
+                d3.select(parentNode);  // FIXME SUPER-FRAGILE!
+            
+            /*
+            var headwordsSenseNum = deckObjToHeadwordSense(
+                deckObj, parentTag.select('select').property('selectedIndex'));
+            deckObj = _.omit(deckObj, 'corewordData,dictionaryData'.split(','));
+            
+            deckObj.group = _.merge(deckObj.group, headwordsSenseNum);
+            */
+
             deckObj.english =
                 parentTag.select('textarea.edit-english').property('value');
             var newJapanese =
@@ -204,8 +265,10 @@ var editResponseStream =
 
             var furigana = parentTag.selectAll('input.edit-furigana')[0].map(
                 node => node.value);
-            var furiganaLemmas = deckObj.ve.filter(veObj => needsFurigana(veObj.word));
+            var furiganaLemmas =
+                deckObj.ve.filter(veObj => needsFurigana(veObj.word));
             furiganaLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
+            
             return Kefir.fromPromise(
                 putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' +
                                    japaneseChanged + '&returnChanges=true',
@@ -220,7 +283,6 @@ var editResponseStream =
           return 0;  // Never happens
         })
         .filter()
-        .log();
 // Get the changes from the db, delete an element from DOM, and emit the object
 var cleanResponseStream =
     editResponseStream.flatMap(response => {

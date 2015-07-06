@@ -6,8 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
 
+body {
+counter-reset: sentencenumber;
+}
+
+.deck-sentence::before {
+  counter-increment: sentencenumber;
+    content: counter(sentencenumber) ") ";
+}
+
 .just-edited {
   background-color:#eee;
+}
+
+.no-display {
+  display: none;
 }
     </style>
     <link href="../stylesheets/ruby.css" rel="stylesheet" title="Ruby style">
