@@ -5,7 +5,7 @@
       "script" : "app.js",
       "args" : [],
       "watch" : true,
-      "node_args" : "",
+      "node_args" : "--harmony",
       "merge_logs" : true,
       "cwd" : "/home/deploy/src/tatoeba-sentence-builder",
       "env" : {"NODE_ENV" : "production"}
