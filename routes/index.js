@@ -9,7 +9,7 @@ var passwordless = require('passwordless');
 
 router.get('/', function(req, res) { res.render('index', {user : req.user}); });
 
-router.get('/restricted', passwordless.restricted(), function(req, res) {
+router.get('/restricted', function(req, res) {
   res.render('restricted', {user : req.user});
 });
 
@@ -38,7 +38,7 @@ var connection = null;
 var connectionPromise = r.connect(
     {host : config.dbHost, port : config.dbPort, db : config.dbName});
 
-router.get('/v2/headwords/:words', passwordless.restricted(), function(req, res) {
+router.get('/v2/headwords/:words', function(req, res) {
   var words = req.params.words.split(',');
   connectionPromise
       .then(function(c) {
@@ -65,7 +65,7 @@ var requestDefaultToStartStop = function(req, def) {
   return [ start, end ];
 };
 router.get(
-    '/v2/sentences/:headword/:sense', passwordless.restricted(),
+    '/v2/sentences/:headword/:sense',
     function(req, res) {
       // Headword readings: if available, require one of these to be present in
       // all sentences returned
@@ -111,7 +111,7 @@ router.get(
           })
     });
 
-router.get('/v2/corewords', passwordless.restricted(), function(req, res) {
+router.get('/v2/corewords', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      var defaultSize = 100;
@@ -130,7 +130,7 @@ router.get('/v2/corewords', passwordless.restricted(), function(req, res) {
       });
 });
 
-router.get('/v2/deck', passwordless.restricted(), function(req, res) {
+router.get('/v2/deck', function(req, res) {
   var extraData = (req.query.extra || '') === 'true';
 
   connectionPromise.then(function(c) {
@@ -170,7 +170,7 @@ router.get('/v2/deck', passwordless.restricted(), function(req, res) {
       });
 });
 
-router.get('/v2/deck/:corenum', passwordless.restricted(), function(req, res) {
+router.get('/v2/deck/:corenum', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      return r.table(config.deckTable)
@@ -189,7 +189,7 @@ router.get('/v2/deck/:corenum', passwordless.restricted(), function(req, res) {
 });
 
 // New sentence from example sentences
-router.post('/v2/deck', passwordless.restricted(), function(req, res) {
+router.post('/v2/deck', function(req, res) {
   var obj = req.body;
   if ('id' in obj) {
     obj = _.omit(obj, 'id');  // Problematic? Was causing node to hang?
@@ -225,7 +225,7 @@ router.post('/v2/deck', passwordless.restricted(), function(req, res) {
 });
 
 // Edited sentence
-router.put('/v2/deck/:id', passwordless.restricted(), function(req, res) {
+router.put('/v2/deck/:id', function(req, res) {
   var obj = req.body;
   if (req.params.id !== obj.id) {
     res.status(404);
@@ -267,7 +267,7 @@ router.put('/v2/deck/:id', passwordless.restricted(), function(req, res) {
       });
 });
 
-router.delete('/v2/deck/:id', passwordless.restricted(), function(req, res) {
+router.delete('/v2/deck/:id', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
                      return r.table(config.deckTable)

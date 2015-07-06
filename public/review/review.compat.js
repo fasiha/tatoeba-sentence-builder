@@ -61,11 +61,14 @@ var jsonPromisifiedUncached = function jsonPromisifiedUncached(url, obj) {
 //////////////////////////////////////////
 // First things first: login?
 //////////////////////////////////////////
-jsonPromisified('/loginstatus').then(function (res) {
-    if (!res) {
+/*
+jsonPromisified('/loginstatus')
+    .then(res => {
+      if (!res) {
         window.location.assign('/');
-    }
-});
+      }
+    });
+*/
 
 // Now, get the deck's contents
 var deckResponseStream = Kefir.constant(1).flatMap(function () {

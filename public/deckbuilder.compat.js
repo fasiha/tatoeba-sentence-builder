@@ -64,12 +64,14 @@ var jsonPromisifiedUncached = function jsonPromisifiedUncached(url, obj) {
 //////////////////////////////////////////
 // First things first: login?
 //////////////////////////////////////////
-jsonPromisified('/loginstatus').then(function (res) {
-  if (!res) {
-    window.location.assign('/');
-  }
-});
-
+/*
+jsonPromisified('/loginstatus')
+    .then(res => {
+      if (!res) {
+        window.location.assign('/');
+      }
+    });
+*/
 //////////////////////////////////////////
 // Pane 1: CORE WORDS
 //////////////////////////////////////////
