@@ -1,4 +1,5 @@
 "use strict";
+var _ = require('lodash');
 var ve = require('../ve');
 var debug = require('debug')('routes');
 var express = require('express');
@@ -232,36 +233,26 @@ router.put('/v2/deck/:id', function(req, res) {
     res.json({err : 'ID in body object did not match ID in URL'});
     return;
   }
-  Promise.all([ connectionPromise, obj.japanese ? ve(obj.japanese) : null ])
+  var japaneseChanged = (req.query.japaneseChanged || 'true') === 'true';
+  Promise.all([
+           connectionPromise,
+           obj.japanese && japaneseChanged ? ve(obj.japanese) : null
+         ])
       .then(function(connVe) {
         connection = connVe[0];
         var veResult = connVe[1];
 
-        var japaneseChanged = req.query.japaneseChanged;
-        if (typeof japaneseChanged === 'undefined') {
-          // Default: if we don't know, assume it's changed, overwrite furigana.
-          japaneseChanged = true;
-        } else {
-          // convert from string to bool
-          japaneseChanged = japaneseChanged === 'true';
-        }
         if (japaneseChanged) {
           obj.ve = veResult;
         }
 
-        var returnChanges = req.query.returnChanges;
-        if (typeof returnChanges === 'undefined') {
-          returnChanges = false;
-        } else {
-          returnChanges = returnChanges === 'true';
-        }
-
         return r.table(config.deckTable)
             .get(obj.id)
-            .update(obj, {returnChanges : returnChanges})
+            .update(_.omit(obj, 'corewordData,dictionaryData'.split(',')))
             .run(connection, {durability : 'soft'});
       })
       .then(function(results) {
+        // FIXME check results
         res.json(results);
         return 1;
       });

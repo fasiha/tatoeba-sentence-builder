@@ -75,6 +75,26 @@ var deckResponseStream = Kefir.constant(1).flatMap(function () {
     return Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/?extra=true'));
 });
 
+if (0) {
+    d3.select('body').append('div').attr('id', 'foo');
+    var p = d3.select('div#foo').selectAll('p').data([1, 2, 3]).enter().append('p').text(function (d) {
+        return '' + d;
+    }).attr('id', function (d) {
+        return 'id' + d;
+    });
+    var p2 = p.selectAll('p').data(function (d) {
+        return [10, 20].map(function (x) {
+            return x + d;
+        });
+    }).enter().append('p').text(function (d) {
+        return '--' + d;
+    }).attr('id', function (d) {
+        return 'sub' + d;
+    });
+
+    d3.select('#sub12').remove();
+}
+
 // Bulk render! Just the function here.
 var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     var groupByKeyVal = function groupByKeyVal() {
@@ -105,6 +125,9 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
         });
     });
     GLOB = deck2;
+    if (deck.length === 1) {
+        console.log('received', deck, GLOB);
+    }
 
     d3.selectAll('.just-edited').classed('just-edited', false);
 
@@ -140,7 +163,8 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
         return senseKV.val;
     }, function (d) {
         return d.id;
-    }).enter().append('p').classed('deck-sentence', true).classed('just-edited', deck.length > 1 ? false : true).attr('id', function (deckObj) {
+    });
+    sentences = sentences.enter().append('p').classed('deck-sentence', true).classed('just-edited', deck.length > 1 ? false : true).attr('id', function (deckObj) {
         return 'id_' + deckObj.id;
     }).html(function (deckObj) {
         var furigana = veArrayToFuriganaMarkup(deckObj.ve);
@@ -207,16 +231,11 @@ sentenceEditClickStream.onValue(function (selection) {
         return ve.reading;
     });
 
-    /*
     var dictionaryList = deckObjectToHeadwordSenseList(deckObj);
-    editBox.append('select')
-        .selectAll('option')
-        .data(dictionaryList)
-        .enter()
-        .append('option')
-        .text(d => d)
+    editBox.append('select').selectAll('option').data(dictionaryList).enter().append('option').text(function (d) {
+        return d;
+    });
     editBox.append('br');
-    */
 
     editBox.append('button').text('Submit').classed('done-editing', true);
     editBox.append('button').text('Cancel').classed('done-editing', true);
@@ -254,13 +273,11 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
     if (button === 'Submit') {
         var parentTag = d3.select(parentNode); // FIXME SUPER-FRAGILE!
 
-        /*
-        var headwordsSenseNum = deckObjToHeadwordSense(
-            deckObj, parentTag.select('select').property('selectedIndex'));
-        deckObj = _.omit(deckObj, 'corewordData,dictionaryData'.split(','));
-        
-        deckObj.group = _.merge(deckObj.group, headwordsSenseNum);
-        */
+        var headwordsSenseNum = deckObjToHeadwordSense(deckObj, parentTag.select('select').property('selectedIndex'));
+
+        deckObj.group = _.merge(deckObj.group, headwordsSenseNum, function (dest, src) {
+            return src;
+        });
 
         deckObj.english = parentTag.select('textarea.edit-english').property('value');
         var newJapanese = parentTag.select('textarea.edit-japanese').property('value');
@@ -277,29 +294,34 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
         furiganaLemmas.forEach(function (ve, idx) {
             return ve.reading = furigana[idx];
         });
+        //console.log('writing id', deckObj.id, deckObj);
 
-        return Kefir.fromPromise(putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged + '&returnChanges=true', deckObj));
+        return Kefir.fromPromise(Promise.all([putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged, deckObj), deckObj]));
     } else if (button === 'Cancel') {
         d3.select(parentNode.parentNode).select('button.edit-deck').classed('no-display', false);
         parentNode.remove();
         return 0;
-    } /* else if (button === 'Delete') {
-       return Kefir.fromPromise(deletePromisified('/v2/deck/' +
-      deckObj.id));
-      }*/
+    }
+    /* else if (button === 'Delete') {
+                          return
+       Kefir.fromPromise(deletePromisified('/v2/deck/' +
+                        deckObj.id));
+                        }*/
+
     return 0; // Never happens
 }).filter();
 // Get the changes from the db, delete an element from DOM, and emit the object
 var cleanResponseStream = editResponseStream.flatMap(function (response) {
-    if (!response || !response.changes) {
+    if (!response || response.length !== 2) {
         return 0;
     }
+    var dbResponse = response[0];
+    var deckObj = response[1];
+    d3.selectAll('#id_' + deckObj.id).remove();
 
-    var id = response.changes[0].new_val.id;
-    d3.select('#id_' + id).remove();
-    var ret = [response.changes[0].new_val];
-    return Kefir.constant(ret);
-}).filter();
+    //console.log('deleted id', deckObj.id, deckObj, d3.select('#id_' + deckObj.id).node());
+    return Kefir.constant([deckObj]);
+}).filter().log();
 
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.
@@ -354,4 +376,6 @@ var kataToHira = function kataToHira(str) {
         return kataToHiraTable[c] || c;
     }).join('');
 };
+// removes 2/12
+//p.selectAll('p').data(1)
 
