@@ -71,8 +71,10 @@ app.use(expressSession({
   secret : siteConfig.sessionSecret,
   resave : true,
   saveUninitialized : false,
-  store : new RDBStore(
-      {servers : [{host : siteConfig.dbHost, port : siteConfig.dbPort}]})
+  store : new RDBStore({
+    db : siteConfig.dbName,
+    servers : [ {host : siteConfig.dbHost, port : siteConfig.dbPort} ]
+  })
 }));
 app.disable('x-powered-by');
 

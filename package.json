@@ -21,7 +21,7 @@
     "ejs": "latest",
     "emailjs": "latest",
     "express": "latest",
-    "express-session": "latest",
+    "express-session": "^1.11.3",
     "lodash": "latest",
     "morgan": "latest",
     "passwordless": "latest",
@@ -31,6 +31,6 @@
     "rethinkdb": "latest",
     "sendgrid": "^1.8.0",
     "serve-favicon": "latest",
-    "session-rethinkdb": "^1.0.5"
+    "session-rethinkdb": "^1.0.6"
   }
 }
