@@ -15,8 +15,8 @@ var hasKanji = function hasKanji(s) {
 };
 var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
 // If there's a single non-kana character, it needs furigana.
-var needsFurigana = function needsFurigana(s) {
-    return s.search(nonKanaRegexp) >= 0;
+var needsFurigana = function needsFurigana(ve) {
+    return ve.part_of_speech !== 'symbol' && ve.lemma !== '*' && ve.word.search(nonKanaRegexp) >= 0;
 };
 
 //////////////////////////////////////////
@@ -75,26 +75,6 @@ var deckResponseStream = Kefir.constant(1).flatMap(function () {
     return Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/?extra=true'));
 });
 
-if (0) {
-    d3.select('body').append('div').attr('id', 'foo');
-    var p = d3.select('div#foo').selectAll('p').data([1, 2, 3]).enter().append('p').text(function (d) {
-        return '' + d;
-    }).attr('id', function (d) {
-        return 'id' + d;
-    });
-    var p2 = p.selectAll('p').data(function (d) {
-        return [10, 20].map(function (x) {
-            return x + d;
-        });
-    }).enter().append('p').text(function (d) {
-        return '--' + d;
-    }).attr('id', function (d) {
-        return 'sub' + d;
-    });
-
-    d3.select('#sub12').remove();
-}
-
 // Bulk render! Just the function here.
 var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     var groupByKeyVal = function groupByKeyVal() {
@@ -125,9 +105,6 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
         });
     });
     GLOB = deck2;
-    if (deck.length === 1) {
-        console.log('received', deck, GLOB);
-    }
 
     d3.selectAll('.just-edited').classed('just-edited', false);
 
@@ -223,7 +200,7 @@ sentenceEditClickStream.onValue(function (selection) {
     editBox.append('textarea').classed('edit-japanese', true).text(deckObj.japanese);
     editBox.append('textarea').classed('edit-english', true).text(deckObj.english);
     var furigana = editBox.append('ul').selectAll('li.furigana-list').data(deckObj.ve.filter(function (o) {
-        return needsFurigana(o.word);
+        return needsFurigana(o);
     })).enter().append('li').classed('furigana-list', true).text(function (ve) {
         return ve.word + '：';
     });
@@ -289,7 +266,7 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
             return node.value;
         });
         var furiganaLemmas = deckObj.ve.filter(function (veObj) {
-            return needsFurigana(veObj.word);
+            return needsFurigana(veObj);
         });
         furiganaLemmas.forEach(function (ve, idx) {
             return ve.reading = furigana[idx];
@@ -317,9 +294,16 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
     }
     var dbResponse = response[0];
     var deckObj = response[1];
+
+    // Delete the data from the parent sense
+    var parentData = d3.select('#id_' + deckObj.id).node().parentNode.__data__;
+    parentData.val = parentData.val.filter(function (o) {
+        return o.id !== deckObj.id;
+    });
+
+    // And delete the object itself. We'll regenerate it
     d3.selectAll('#id_' + deckObj.id).remove();
 
-    //console.log('deleted id', deckObj.id, deckObj, d3.select('#id_' + deckObj.id).node());
     return Kefir.constant([deckObj]);
 }).filter().log();
 
@@ -358,7 +342,7 @@ function findPrePostfix(a, b) {
 }
 function veArrayToFuriganaMarkup(ves) {
     return ves.map(function (v) {
-        return needsFurigana(v.word) ? wordReadingToRuby(v.word, kataToHira(v.reading)) : v.word;
+        return needsFurigana(v) ? wordReadingToRuby(v.word, kataToHira(v.reading)) : v.word;
     }).join('');
 }
 
@@ -376,6 +360,4 @@ var kataToHira = function kataToHira(str) {
         return kataToHiraTable[c] || c;
     }).join('');
 };
-// removes 2/12
-//p.selectAll('p').data(1)
 

@@ -301,7 +301,7 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
 
   var div = d3.select(ev.target.parentNode);
   var button = ev.target.innerHTML;
-  console.log(button);
+
   if (button === 'Submit') {
     var obj = {
       english: div.select('.edit-english').property('value'),
@@ -314,9 +314,12 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
         num: -1, headwords: headwords, senseNum: senseNum
       }
     };
+    div.remove();
+    d3.select('button#new-sentence').classed('no-display', false);
     return Kefir.fromPromise(postPromisified('/v2/deck', obj));
   } else if (button === 'Cancel') {
     div.remove();
+    d3.select('button#new-sentence').classed('no-display', false);
     return 0;
   }
   return -1;

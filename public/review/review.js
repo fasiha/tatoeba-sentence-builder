@@ -13,7 +13,8 @@ var hanRegexp = XRegExp('\\p{Han}');
 var hasKanji = s => s.search(hanRegexp) >= 0;
 var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
 // If there's a single non-kana character, it needs furigana.
-var needsFurigana = s => s.search(nonKanaRegexp) >= 0;
+var needsFurigana = ve => ve.part_of_speech !== 'symbol' && ve.lemma !== '*' &&
+                          ve.word.search(nonKanaRegexp) >= 0;
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -64,26 +65,6 @@ jsonPromisified('/loginstatus')
 var deckResponseStream = Kefir.constant(1).flatMap(
     () => Kefir.fromPromise(jsonPromisifiedUncached('/v2/deck/?extra=true')));
 
-if (0) {
-  d3.select('body').append('div').attr('id', 'foo');
-  var p = d3.select('div#foo')
-      .selectAll('p')
-      .data([ 1, 2, 3 ])
-      .enter()
-      .append('p')
-      .text(d => "" + d)
-      .attr('id', d => 'id' + d);
-  var p2 = p.selectAll('p')
-               .data(d => [ 10, 20 ].map(x => x + d))
-               .enter()
-               .append('p')
-               .text(d => '--' + d)
-               .attr('id', d => 'sub' + d);
-
-  d3.select('#sub12').remove() // removes 2/12
-  //p.selectAll('p').data(1)
-}
-
 // Bulk render! Just the function here.
 var deckResponseStreamFunction =
     deck => {
@@ -104,7 +85,6 @@ var deckResponseStreamFunction =
         });
       });
       GLOB = deck2;
-      if (deck.length===1) {console.log('received', deck, GLOB)}
       
       d3.selectAll('.just-edited').classed('just-edited', false);
 
@@ -214,7 +194,7 @@ sentenceEditClickStream.onValue(selection => {
       .text(deckObj.english);
   var furigana = editBox.append('ul')
                      .selectAll('li.furigana-list')
-                     .data(deckObj.ve.filter(o => needsFurigana(o.word)))
+                     .data(deckObj.ve.filter(o => needsFurigana(o)))
                      .enter()
                      .append('li')
                      .classed('furigana-list', true)
@@ -284,7 +264,7 @@ var editResponseStream =
             var furigana = parentTag.selectAll('input.edit-furigana')[0].map(
                 node => node.value);
             var furiganaLemmas =
-                deckObj.ve.filter(veObj => needsFurigana(veObj.word));
+                deckObj.ve.filter(veObj => needsFurigana(veObj));
             furiganaLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
                         //console.log('writing id', deckObj.id, deckObj);
 
@@ -318,9 +298,17 @@ var cleanResponseStream =
                         }
                         var dbResponse = response[0];
                         var deckObj = response[1];
+
+                        // Delete the data from the parent sense
+                        var parentData = d3.select('#id_' + deckObj.id)
+                                             .node()
+                                             .parentNode.__data__;
+                        parentData.val =
+                            parentData.val.filter(o => o.id !== deckObj.id);
+
+                        // And delete the object itself. We'll regenerate it
                         d3.selectAll('#id_' + deckObj.id).remove();
                         
-                        //console.log('deleted id', deckObj.id, deckObj, d3.select('#id_' + deckObj.id).node());
                         return Kefir.constant([ deckObj ]);
                       })
         .filter().log();
@@ -360,7 +348,7 @@ function findPrePostfix(a, b) {
   };
 }
 function veArrayToFuriganaMarkup(ves) {
-  return ves.map(v => needsFurigana(v.word)
+  return ves.map(v => needsFurigana(v)
                           ? wordReadingToRuby(v.word, kataToHira(v.reading))
                           : v.word)
       .join('');
