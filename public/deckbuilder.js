@@ -9,11 +9,6 @@ function tonoDetailsCleanup(details) {
   var lines = details.split('\n');
   return lines[0].replace(/^[0-9]+ /, '') + '<br>' + (lines[1] || "");
 }
-var hanRegexp = XRegExp('\\p{Han}');
-var hasKanji = s => s.search(hanRegexp) >= 0;
-var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
-// If there's a single non-kana character, it needs furigana.
-var needsFurigana = s => s.search(nonKanaRegexp) >= 0;
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -344,13 +339,14 @@ deckSentenceEditClickStream.onValue(selection => {
   editBox.append('textarea')
       .classed('edit-english', true)
       .text(deckObj.english);
-  var furigana = editBox.append('ul')
-                     .selectAll('li.furigana-list')
-                     .data(deckObj.ve.filter(o => needsFurigana(o.word)))
-                     .enter()
-                     .append('li')
-                     .classed('furigana-list', true)
-                     .text(ve => ve.word + '：');
+  var furigana =
+      editBox.append('ul')
+          .selectAll('li.furigana-list')
+          .data(deckObj.ve.filter(o => furiganaUtils.needsFurigana(o)))
+          .enter()
+          .append('li')
+          .classed('furigana-list', true)
+          .text(ve => ve.word + '：');
   furigana.append('input')
       .classed('edit-furigana', true)
       .attr({type : 'text'})
@@ -383,7 +379,8 @@ var deckEditResponseStream = deckEdititedStream.flatMap(selection => {
 
     var furigana =
         parentTag.selectAll('input.edit-furigana')[0].map(node => node.value);
-    var furiganaLemmas = deckObj.ve.filter(veObj => needsFurigana(veObj.word));
+    var furiganaLemmas =
+        deckObj.ve.filter(veObj => furiganaUtils.needsFurigana(veObj));
     furiganaLemmas.forEach((ve, idx) => ve.reading = furigana[idx]);
     return Kefir.fromPromise(putPromisified(
         '/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged,
@@ -437,69 +434,14 @@ Kefir.combine([ deckResponseStream, entryAndCoreClickStream ])
                                    headwords
                                        ? o => !(o.group.senseNum === senseNum &&
                                                 o.group.headwords.join(',') ===
-                                                headwords.join(','))
+                                                    headwords.join(','))
                                        : false)
                           .html(deckObj => {
-                            var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+                            var furigana =
+                                furiganaUtils.veArrayToFuriganaMarkup(deckObj.ve);
                             return `${furigana} ${deckObj.english}
                               (s${deckObj.group.senseNum}) `
                           });
       sentences.append('button').classed('edit-deck', true).text('?');
     });
-
-// FURIGANA UTILITIES
-function findPrePostfix(a, b) {
-  var minLength = Math.min(a.length, b.length);
-
-  // Important initialization and prefix search
-  var preLen = minLength;
-  for (var i = 0; i < minLength; i++) {
-    if (a[i] !== b[i]) {
-      preLen = i;
-      break;
-    }
-  }
-
-  // Similar search for postfix search plus an important initialization
-  var postLen = minLength - preLen;
-  for (var i = 0; i < minLength - preLen; i++) {
-    if (a[a.length - i - 1] !== b[b.length - i - 1]) {
-      postLen = i;
-      break;
-    }
-  }
-
-  return {
-    a : a.substring(preLen, a.length - postLen),
-    b : b.substring(preLen, b.length - postLen),
-    pre : a.substring(0, preLen),
-    post : a.substring(a.length - postLen, a.length)
-  };
-}
-function veArrayToFuriganaMarkup(ves) {
-  return ves.map(v => needsFurigana(v.word)
-                          ? wordReadingToRuby(v.word, kataToHira(v.reading))
-                          : v.word)
-      .join('');
-}
-
-function wordReadingToRuby(word, reading) {
-  var strip = findPrePostfix(word, reading);
-  return strip.pre +
-         (strip.a.length
-              ? "<ruby>" + strip.a + "<rp>(</rp><rt>" +
-                    (strip.b.length ? strip.b : _.repeat("?", strip.a.length)) +
-                    "</rt><rp>)</rp></ruby>"
-              : "") +
-         strip.post;
-}
-
-const hiraString =
-    "ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ";
-const kataString =
-    "ァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモャヤュユョヨラリルレロヮワヰヱヲンヴヵヶ";
-
-var kataToHiraTable = _.object(kataString.split(''), hiraString.split(''));
-var kataToHira = str =>
-    str.split('').map(c => kataToHiraTable[c] || c).join('');
 

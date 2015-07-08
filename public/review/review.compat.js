@@ -9,15 +9,6 @@ function tonoDetailsCleanup(details) {
     var lines = details.split('\n');
     return lines[0].replace(/^[0-9]+ /, '') + '<br>' + (lines[1] || '');
 }
-var hanRegexp = XRegExp('\\p{Han}');
-var hasKanji = function hasKanji(s) {
-    return s.search(hanRegexp) >= 0;
-};
-var nonKanaRegexp = XRegExp('[^\\p{Katakana}\\p{Hiragana}]');
-// If there's a single non-kana character, it needs furigana.
-var needsFurigana = function needsFurigana(ve) {
-    return ve.part_of_speech !== 'symbol' && ve.lemma !== '*' && ve.word.search(nonKanaRegexp) >= 0;
-};
 
 //////////////////////////////////////////
 // We use JSON GETs and POSTs exclusively. Use d3 for GET and fetch for POST.
@@ -144,7 +135,7 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     sentences = sentences.enter().append('p').classed('deck-sentence', true).classed('just-edited', deck.length > 1 ? false : true).attr('id', function (deckObj) {
         return 'id_' + deckObj.id;
     }).html(function (deckObj) {
-        var furigana = veArrayToFuriganaMarkup(deckObj.ve);
+        var furigana = furiganaUtils.veArrayToFuriganaMarkup(deckObj.ve);
         return furigana + ' (' + deckObj.english + ')';
     });
     sentences.append('button').classed('edit-deck', true).text('?');
@@ -200,7 +191,7 @@ sentenceEditClickStream.onValue(function (selection) {
     editBox.append('textarea').classed('edit-japanese', true).text(deckObj.japanese);
     editBox.append('textarea').classed('edit-english', true).text(deckObj.english);
     var furigana = editBox.append('ul').selectAll('li.furigana-list').data(deckObj.ve.filter(function (o) {
-        return needsFurigana(o);
+        return furiganaUtils.needsFurigana(o);
     })).enter().append('li').classed('furigana-list', true).text(function (ve) {
         return ve.word + '：';
     });
@@ -230,7 +221,7 @@ function deckObjectToHeadwordSenseList(deckObj) {
 function deckObjToHeadwordSense(deckObj, idx) {
     var listOfOptions = _.flatten(deckObj.dictionaryData.map(function (o, i) {
         return _.range(o.senses.length).map(function (x) {
-            return { headwords: o.headwords, senseNum: x };
+            return { headwords: o.headwords, senseNum: x + 1 };
         });
     }));
     return listOfOptions[idx];
@@ -266,7 +257,7 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
             return node.value;
         });
         var furiganaLemmas = deckObj.ve.filter(function (veObj) {
-            return needsFurigana(veObj);
+            return furiganaUtils.needsFurigana(veObj);
         });
         furiganaLemmas.forEach(function (ve, idx) {
             return ve.reading = furigana[idx];
@@ -310,54 +301,4 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.
 deckResponseStream.merge(cleanResponseStream).onValue(deckResponseStreamFunction);
-
-// FURIGANA UTILITIES
-function findPrePostfix(a, b) {
-    var minLength = Math.min(a.length, b.length);
-
-    // Important initialization and prefix search
-    var preLen = minLength;
-    for (var i = 0; i < minLength; i++) {
-        if (a[i] !== b[i]) {
-            preLen = i;
-            break;
-        }
-    }
-
-    // Similar search for postfix search plus an important initialization
-    var postLen = minLength - preLen;
-    for (var i = 0; i < minLength - preLen; i++) {
-        if (a[a.length - i - 1] !== b[b.length - i - 1]) {
-            postLen = i;
-            break;
-        }
-    }
-
-    return {
-        a: a.substring(preLen, a.length - postLen),
-        b: b.substring(preLen, b.length - postLen),
-        pre: a.substring(0, preLen),
-        post: a.substring(a.length - postLen, a.length)
-    };
-}
-function veArrayToFuriganaMarkup(ves) {
-    return ves.map(function (v) {
-        return needsFurigana(v) ? wordReadingToRuby(v.word, kataToHira(v.reading)) : v.word;
-    }).join('');
-}
-
-function wordReadingToRuby(word, reading) {
-    var strip = findPrePostfix(word, reading);
-    return strip.pre + (strip.a.length ? '<ruby>' + strip.a + '<rp>(</rp><rt>' + (strip.b.length ? strip.b : _.repeat('?', strip.a.length)) + '</rt><rp>)</rp></ruby>' : '') + strip.post;
-}
-
-var hiraString = 'ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ';
-var kataString = 'ァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモャヤュユョヨラリルレロヮワヰヱヲンヴヵヶ';
-
-var kataToHiraTable = _.object(kataString.split(''), hiraString.split(''));
-var kataToHira = function kataToHira(str) {
-    return str.split('').map(function (c) {
-        return kataToHiraTable[c] || c;
-    }).join('');
-};
 

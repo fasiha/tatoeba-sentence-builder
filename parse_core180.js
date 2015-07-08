@@ -22,7 +22,7 @@ var basic =
             ve : [],
             source : {name : "self"},
             globalNum : idx,
-            group : {coreNum : -1, headword : "", senseNum : -1, num : idx}
+            group : {coreNum : -1, headword : "", senseNum : 0, num : idx}
           };
         });
 // Examples have keys: english,japanese,source,tags,(modifiedTime,id).
