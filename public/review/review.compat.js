@@ -104,7 +104,7 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
         var coreIdx = _ref42[0];
         var sentences = _ref42[1];
         return _.pairs(_.groupBy(sentences, function (o) {
-            return o.group.entrySeq || o.group.headwords.join('');
+            return o.group.entrySeq || o.group.headwords.join('・');
         }));
     }, function (_ref5) {
         var _ref52 = _slicedToArray(_ref5, 1);

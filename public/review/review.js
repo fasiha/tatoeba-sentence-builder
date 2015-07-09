@@ -89,7 +89,7 @@ var deckResponseStreamFunction =
       corewords.selectAll('div.headword')
           .data(([ coreIdx, sentences ]) => _.pairs(_.groupBy(
                     sentences,
-                    o => o.group.entrySeq || o.group.headwords.join(''))),
+                    o => o.group.entrySeq || o.group.headwords.join('・'))),
                 ([ entryKey ]) => `headwords-${entryKey}`)
           .enter()
           .append('div')
