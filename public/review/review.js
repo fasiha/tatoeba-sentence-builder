@@ -62,73 +62,75 @@ var deckResponseStream = Kefir.constant(1).flatMap(
 // Bulk render! Just the function here.
 var deckResponseStreamFunction =
     deck => {
-      var groupByKeyVal = (...args) => _.values(_.mapValues(
-          _.groupBy(...args), (val, key) => { return {key : key, val}; }));
-      var deck2 =
-          _.sortBy(groupByKeyVal(deck, o => o.group.coreNum), o => +o.key);
-
-      // deck2 = deck2.filter(o => o.key !== "-1");
-
-      deck2.forEach(kvCore => {
-        kvCore.val =
-            groupByKeyVal(kvCore.val, obj => obj.group.entrySeq ||
-                                             obj.group.headwords.join(','));
-        kvCore.val.forEach(kvHead => {
-          kvHead.val =
-              _.sortBy(groupByKeyVal(kvHead.val, obj => obj.group.senseNum),
-                       o => +o.key);
-        });
-      });
-      GLOB = deck2;
-      
+      GLOB = deck;
       d3.selectAll('.just-edited').classed('just-edited', false);
 
-      var corewords = d3.select('#content').selectAll('div.coreword');
-      corewords.data(deck2, d => `corenum-${d.key}`)
+      /////////////////////////////////
+      // Level 1: CORE WORDS
+      /////////////////////////////////
+      d3.select('#content')
+          .selectAll('div.coreword')
+          .data(_.sortBy(_.pairs(_.groupBy(deck, o => o.group.coreNum)),
+                         v => +v[0]),
+                ([ coreIdx ]) => `corenum-${coreIdx}`)
           .enter()
           .append('div')
           .classed('coreword', true)
           .append('h2')
-          .text(
-              coreKV =>
-                  '#' +
-                  (_.get(coreKV,
-                         'val[0].val[0].val[0].corewordData.source.details') ||
-                   '')
-                      .split('\n')[0]);
-      corewords = d3.select('#content').selectAll('div.coreword');
+          .text(([ coreIdx, sentences ]) =>
+                    '#' +
+                    (sentences[0].corewordData.source.details || '')
+                        .split('\n')[0]);
+      var corewords = d3.select('#content').selectAll('div.coreword');
 
-
-      var headwords =
-          corewords.selectAll('div.headword');
-      headwords.data(coreKV => coreKV.val, d => `headwords-${d.key}`)
+      /////////////////////////////////
+      // Level 2: dictionary entries/headwords
+      /////////////////////////////////
+      corewords.selectAll('div.headword')
+          .data(([ coreIdx, sentences ]) => _.pairs(_.groupBy(
+                    sentences,
+                    o => o.group.entrySeq || o.group.headwords.join(''))),
+                ([ entryKey ]) => `headwords-${entryKey}`)
           .enter()
           .append('div')
           .classed('headword', true)
           .append('h3')
-          .text(headwordKV =>
-                    headwordKV.val[0]
-                        .val[0]
+          .text(([ entryKey, sentences ]) =>
+                    sentences[0]
                         .dictionaryData.filter(o => o.source.entrySeq ===
-                                                    +headwordKV.key)
+                                                    +entryKey)
                         .map(o => o.kanji.join('・') + '・' +
                                   o.readings.join('・'))[0] ||
-                    headwordKV.key.split(',').join('・') + '?');
-      headwords =
-          corewords.selectAll('div.headword');
+                    entryKey.split(',').join('・') + '?');
+      var headwords = corewords.selectAll('div.headword');
 
-      var senses = headwords.selectAll('div.sense');
-      senses.data(headwordKV => headwordKV.val, d => `sensenum-${d.key}`)
+      /////////////////////////////////
+      // Level 3: senses (within a dictionary entry)
+      /////////////////////////////////
+      headwords.selectAll('div.sense')
+          .data(([ entryKey, sentences ]) =>
+                    _.pairs(_.groupBy(sentences, o => o.group.senseNum)),
+                ([ senseNum ]) => `sensenum-${senseNum}`)
           .enter()
           .append('div')
           .classed('sense', true)
           .append('h4')
-          .text(senseKV => senseKV.key);
-      senses = headwords.selectAll('div.sense');
+          .text(([ senseNum, sentences ]) =>
+                    (sentences[0].group.entrySeq && +senseNum > 0)
+                        ? sentences[0]
+                              .dictionaryData
+                              .filter(o => o.source.entrySeq ===
+                                           sentences[0].group.entrySeq)[0]
+                              .senses[+senseNum - 1]
+                        : senseNum);
+      var senses = headwords.selectAll('div.sense');
 
+      /////////////////////////////////
+      // Final level, level 4: sentences!
+      /////////////////////////////////
       var sentences =
           senses.selectAll('p.deck-sentence')
-              .data(senseKV => senseKV.val, d => d.id);
+              .data(([ senseNum, sentences ]) => sentences, o => o.id);
       sentences = sentences.enter()
                       .append('p')
                       .classed('deck-sentence', true)
@@ -141,6 +143,7 @@ var deckResponseStreamFunction =
                       });
       sentences.append('button').classed('edit-deck', true).text('?');
 
+      // Reorganize sentences
       var objToNum = o => o.group.num ;
       d3.select('#content')
           .selectAll('div.coreword')
@@ -310,16 +313,19 @@ var cleanResponseStream =
                         // Delete the data from the parent sense
                         var parentData = d3.select('#id_' + deckObj.id)
                                              .node()
-                                             .parentNode.__data__;
-                        parentData.val =
-                            parentData.val.filter(o => o.id !== deckObj.id);
+                                             .parentNode;
+                        parentData.__data__ = [
+                          parentData.__data__[0],
+                          parentData.__data__[1].filter(o =>
+                                                            o.id !== deckObj.id)
+                        ];
 
                         // And delete the object itself. We'll regenerate it
                         d3.selectAll('#id_' + deckObj.id).remove();
                         
                         return Kefir.constant([ deckObj ]);
                       })
-        .filter().log();
+        .filter();
 
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.

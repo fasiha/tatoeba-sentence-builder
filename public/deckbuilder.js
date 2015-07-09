@@ -142,7 +142,7 @@ Kefir.combine([ dictResponseStream.merge(coreClickStream.map(() => null)) ],
             .enter()
             .append('li')
             .classed('sense-entry', true)
-            .text(senseObj => senseObj.sense);
+            .text(senseObj => senseObj.sense.replace(/；/g, '； '));
       }
       if (coreword.source.num === -1) {
         d3.select('button#new-sentence').classed('no-display', false);

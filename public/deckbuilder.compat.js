@@ -139,7 +139,7 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
                 return { sense: sense, entry: entry, senseNum: i - 1 };
             });
         }).enter().append('li').classed('sense-entry', true).text(function (senseObj) {
-            return senseObj.sense;
+            return senseObj.sense.replace(/；/g, '； ');
         });
     }
     if (coreword.source.num === -1) {

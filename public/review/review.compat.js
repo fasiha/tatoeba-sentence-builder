@@ -1,4 +1,7 @@
 'use strict';
+
+var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }; })();
+
 // Debug variable that shouldn't contain anything
 var GLOB;
 
@@ -68,73 +71,97 @@ var deckResponseStream = Kefir.constant(1).flatMap(function () {
 
 // Bulk render! Just the function here.
 var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
-    var groupByKeyVal = function groupByKeyVal() {
-        var _ref;
-
-        return _.values(_.mapValues((_ref = _).groupBy.apply(_ref, arguments), function (val, key) {
-            return { key: key, val: val };
-        }));
-    };
-    var deck2 = _.sortBy(groupByKeyVal(deck, function (o) {
-        return o.group.coreNum;
-    }), function (o) {
-        return +o.key;
-    });
-
-    // deck2 = deck2.filter(o => o.key !== "-1");
-
-    deck2.forEach(function (kvCore) {
-        kvCore.val = groupByKeyVal(kvCore.val, function (obj) {
-            return obj.group.entrySeq || obj.group.headwords.join(',');
-        });
-        kvCore.val.forEach(function (kvHead) {
-            kvHead.val = _.sortBy(groupByKeyVal(kvHead.val, function (obj) {
-                return obj.group.senseNum;
-            }), function (o) {
-                return +o.key;
-            });
-        });
-    });
-    GLOB = deck2;
-
+    GLOB = deck;
     d3.selectAll('.just-edited').classed('just-edited', false);
 
-    var corewords = d3.select('#content').selectAll('div.coreword');
-    corewords.data(deck2, function (d) {
-        return 'corenum-' + d.key;
-    }).enter().append('div').classed('coreword', true).append('h2').text(function (coreKV) {
-        return '#' + (_.get(coreKV, 'val[0].val[0].val[0].corewordData.source.details') || '').split('\n')[0];
-    });
-    corewords = d3.select('#content').selectAll('div.coreword');
+    /////////////////////////////////
+    // Level 1: CORE WORDS
+    /////////////////////////////////
+    d3.select('#content').selectAll('div.coreword').data(_.sortBy(_.pairs(_.groupBy(deck, function (o) {
+        return o.group.coreNum;
+    })), function (v) {
+        return +v[0];
+    }), function (_ref) {
+        var _ref2 = _slicedToArray(_ref, 1);
 
-    var headwords = corewords.selectAll('div.headword');
-    headwords.data(function (coreKV) {
-        return coreKV.val;
-    }, function (d) {
-        return 'headwords-' + d.key;
-    }).enter().append('div').classed('headword', true).append('h3').text(function (headwordKV) {
-        return headwordKV.val[0].val[0].dictionaryData.filter(function (o) {
-            return o.source.entrySeq === +headwordKV.key;
+        var coreIdx = _ref2[0];
+        return 'corenum-' + coreIdx;
+    }).enter().append('div').classed('coreword', true).append('h2').text(function (_ref3) {
+        var _ref32 = _slicedToArray(_ref3, 2);
+
+        var coreIdx = _ref32[0];
+        var sentences = _ref32[1];
+        return '#' + (sentences[0].corewordData.source.details || '').split('\n')[0];
+    });
+    var corewords = d3.select('#content').selectAll('div.coreword');
+
+    /////////////////////////////////
+    // Level 2: dictionary entries/headwords
+    /////////////////////////////////
+    corewords.selectAll('div.headword').data(function (_ref4) {
+        var _ref42 = _slicedToArray(_ref4, 2);
+
+        var coreIdx = _ref42[0];
+        var sentences = _ref42[1];
+        return _.pairs(_.groupBy(sentences, function (o) {
+            return o.group.entrySeq || o.group.headwords.join('');
+        }));
+    }, function (_ref5) {
+        var _ref52 = _slicedToArray(_ref5, 1);
+
+        var entryKey = _ref52[0];
+        return 'headwords-' + entryKey;
+    }).enter().append('div').classed('headword', true).append('h3').text(function (_ref6) {
+        var _ref62 = _slicedToArray(_ref6, 2);
+
+        var entryKey = _ref62[0];
+        var sentences = _ref62[1];
+        return sentences[0].dictionaryData.filter(function (o) {
+            return o.source.entrySeq === +entryKey;
         }).map(function (o) {
             return o.kanji.join('・') + '・' + o.readings.join('・');
-        })[0] || headwordKV.key.split(',').join('・') + '?';
+        })[0] || entryKey.split(',').join('・') + '?';
     });
-    headwords = corewords.selectAll('div.headword');
+    var headwords = corewords.selectAll('div.headword');
 
+    /////////////////////////////////
+    // Level 3: senses (within a dictionary entry)
+    /////////////////////////////////
+    headwords.selectAll('div.sense').data(function (_ref7) {
+        var _ref72 = _slicedToArray(_ref7, 2);
+
+        var entryKey = _ref72[0];
+        var sentences = _ref72[1];
+        return _.pairs(_.groupBy(sentences, function (o) {
+            return o.group.senseNum;
+        }));
+    }, function (_ref8) {
+        var _ref82 = _slicedToArray(_ref8, 1);
+
+        var senseNum = _ref82[0];
+        return 'sensenum-' + senseNum;
+    }).enter().append('div').classed('sense', true).append('h4').text(function (_ref9) {
+        var _ref92 = _slicedToArray(_ref9, 2);
+
+        var senseNum = _ref92[0];
+        var sentences = _ref92[1];
+        return sentences[0].group.entrySeq && +senseNum > 0 ? sentences[0].dictionaryData.filter(function (o) {
+            return o.source.entrySeq === sentences[0].group.entrySeq;
+        })[0].senses[+senseNum - 1] : senseNum;
+    });
     var senses = headwords.selectAll('div.sense');
-    senses.data(function (headwordKV) {
-        return headwordKV.val;
-    }, function (d) {
-        return 'sensenum-' + d.key;
-    }).enter().append('div').classed('sense', true).append('h4').text(function (senseKV) {
-        return senseKV.key;
-    });
-    senses = headwords.selectAll('div.sense');
 
-    var sentences = senses.selectAll('p.deck-sentence').data(function (senseKV) {
-        return senseKV.val;
-    }, function (d) {
-        return d.id;
+    /////////////////////////////////
+    // Final level, level 4: sentences!
+    /////////////////////////////////
+    var sentences = senses.selectAll('p.deck-sentence').data(function (_ref10) {
+        var _ref102 = _slicedToArray(_ref10, 2);
+
+        var senseNum = _ref102[0];
+        var sentences = _ref102[1];
+        return sentences;
+    }, function (o) {
+        return o.id;
     });
     sentences = sentences.enter().append('p').classed('deck-sentence', true).classed('just-edited', deck.length > 1 ? false : true).attr('id', function (deckObj) {
         return 'id_' + deckObj.id;
@@ -144,6 +171,7 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     });
     sentences.append('button').classed('edit-deck', true).text('?');
 
+    // Reorganize sentences
     var objToNum = function objToNum(o) {
         return o.group.num;
     };
@@ -295,16 +323,16 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
     var deckObj = response[1];
 
     // Delete the data from the parent sense
-    var parentData = d3.select('#id_' + deckObj.id).node().parentNode.__data__;
-    parentData.val = parentData.val.filter(function (o) {
+    var parentData = d3.select('#id_' + deckObj.id).node().parentNode;
+    parentData.__data__ = [parentData.__data__[0], parentData.__data__[1].filter(function (o) {
         return o.id !== deckObj.id;
-    });
+    })];
 
     // And delete the object itself. We'll regenerate it
     d3.selectAll('#id_' + deckObj.id).remove();
 
     return Kefir.constant([deckObj]);
-}).filter().log();
+}).filter();
 
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.
