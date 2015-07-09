@@ -3,7 +3,7 @@ var lo = require('lodash');
 var utils = require('./nodeUtilities.js');
 
 function extractKanjiHeadwords(block) {
-  return block.match(/<keb>[\S\s]*?<\/keb>/g)
+  return (block.match(/<keb>[\S\s]*?<\/keb>/g) || [])
       .map(function(s) { return s.replace(/<[^>]*>/g, ''); });
 }
 
@@ -24,33 +24,32 @@ function extractSenses(block) {
       });
 }
 
+function extractEntrySequence(block) {
+  return +(block.match(/<ent_seq>([0-9]+)<\/ent_seq>/)[1]);
+}
+
 var entries = utils.read('data/JMdict_e').trim().split('</entry>');
 
 var headwords = entries.map(function(entry, number) {
   entry = entry.replace(/\n/g, '');
-  var obj = {readings: extractReadingHeadwords(entry)};
+  var readings = extractReadingHeadwords(entry),
+      kanji = extractKanjiHeadwords(entry);
+  var obj = {readings : readings, kanji : kanji};
 
-  // Find headword
-  if (entry.search('<k_ele>') >= 0) {
-    obj.headwords = extractKanjiHeadwords(entry);
-    obj.type = 'kanji';
-    if (entry.search('&uk;') >= 0) {
-      obj.headwords = obj.headwords.concat(obj.readings);
-      obj.type = 'both';
-    }
-  } else if (entry.search('<r_ele>') >= 0) {
-    obj.headwords = obj.readings;
-    obj.type = 'reading';
-  } else {
+  if (kanji.length + readings.length === 0) {
     console.error("Can't find anything in entry number", number, entry);
     return null;
   }
+
+  obj.usuallyKana = entry.search('&uk;') >= 0;
+  obj.headwords =
+      kanji.concat(kanji.length === 0 || obj.usuallyKana ? readings : []);
 
   // Find senses: all entries in JMdict should have >= 1 senses
   obj.senses = extractSenses(entry);
 
   // Finally, append the number for easy cross-reference
-  obj.source = {num : number, name : "JMdict"};
+  obj.source = {entrySeq : extractEntrySequence(entry), name : "JMdict"};
 
   return obj;
 });

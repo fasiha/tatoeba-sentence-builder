@@ -115,7 +115,7 @@ router.get(
 router.get('/v2/corewords', function(req, res) {
   connectionPromise.then(function(c) {
                      connection = c;
-                     var defaultSize = 100;
+                     var defaultSize = 500;
                      var startEnd = requestDefaultToStartStop(req, defaultSize);
 
                      return r.table(config.corewordsTable)

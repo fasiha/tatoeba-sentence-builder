@@ -71,7 +71,8 @@ var deckResponseStreamFunction =
 
       deck2.forEach(kvCore => {
         kvCore.val =
-            groupByKeyVal(kvCore.val, obj => obj.group.headwords.join(','));
+            groupByKeyVal(kvCore.val, obj => obj.group.entrySeq ||
+                                             obj.group.headwords.join(','));
         kvCore.val.forEach(kvHead => {
           kvHead.val =
               _.sortBy(groupByKeyVal(kvHead.val, obj => obj.group.senseNum),
@@ -105,7 +106,14 @@ var deckResponseStreamFunction =
           .append('div')
           .classed('headword', true)
           .append('h3')
-          .text(headwordKV => headwordKV.key.split(',').join('・'));
+          .text(headwordKV =>
+                    headwordKV.val[0]
+                        .val[0]
+                        .dictionaryData.filter(o => o.source.entrySeq ===
+                                                    +headwordKV.key)
+                        .map(o => o.kanji.join('・') + '・' +
+                                  o.readings.join('・'))[0] ||
+                    headwordKV.key.split(',').join('・') + '?');
       headwords =
           corewords.selectAll('div.headword');
 
@@ -199,7 +207,7 @@ sentenceEditClickStream.onValue(selection => {
       .attr({type : 'text'})
       .attr('value', ve => ve.reading);
 
-  var dictionaryList = deckObjectToHeadwordSenseList(deckObj);
+  var dictionaryList = deckObjToHeadwordSenseList(deckObj);
   editBox.append('select')
       .selectAll('option')
       .data(dictionaryList)
@@ -214,17 +222,22 @@ sentenceEditClickStream.onValue(selection => {
 
   return selection;
 });
-function deckObjectToHeadwordSenseList(deckObj) {
+function deckObjToHeadwordSenseList(deckObj) {
   return _.flatten(deckObj.dictionaryData.map(
       (o, oi) => o.senses.map(
           (s, i) =>
-              `Headword ${oi+1}. ${o.headwords.concat(o.type === 'kanji' ? o.readings : []).join('・')} (sense ${i+1}) ${s}`)));
+              `Entry ${oi+1}. ${o.kanji.join('・')}：${o.readings.join('・')} (sense ${i+1}) ${s}`)));
 }
-function deckObjToHeadwordSense(deckObj, idx){
-  var listOfOptions = _.flatten(deckObj.dictionaryData.map(
-      (o, i) =>
-          _.range(o.senses.length)
-              .map(x => {return {headwords : o.headwords, senseNum : x + 1}})));
+function deckObjToDictionaryData(deckObj, idx){
+  var listOfOptions = _.flatten(
+      deckObj.dictionaryData.map((o, i) => _.range(o.senses.length)
+                                               .map(x => {
+                                                 return {
+                                                   headwords : o.headwords,
+                                                   senseNum : x + 1,
+                                                   entrySeq : o.source.entrySeq
+                                                 }
+                                               })));
   return listOfOptions[idx];
 }
 // When someone's done editing: capture the click,
@@ -242,11 +255,11 @@ var editResponseStream =
           if (button === 'Submit') {
             var parentTag = d3.select(parentNode);  // FIXME SUPER-FRAGILE!
 
-            var headwordsSenseNum = deckObjToHeadwordSense(
+            var dictData = deckObjToDictionaryData(
                 deckObj, parentTag.select('select').property('selectedIndex'));
 
             deckObj.group =
-                _.merge(deckObj.group, headwordsSenseNum, (dest, src) => src);
+                _.merge(deckObj.group, dictData, (dest, src) => src);
 
             deckObj.english =
                 parentTag.select('textarea.edit-english').property('value');

@@ -80,15 +80,30 @@ r.connect({host : config.dbHost, port : config.dbPort})
     })
 
     .then(function(indexes) {
+      var promises = [];
+
+      if (indexes.indexOf("entrySeq") < 0) {
+        console.log("Creating `entrySeq` index on dictionary table.");
+        promises.push(r.db(config.dbName)
+                          .table(config.headwordsTable)
+                          .indexCreate("entrySeq", r.row('source')('entrySeq'))
+                          .run(connection));
+      } else {
+        console.log("Secondary index `entrySeq` already exists in dict table.");
+      }
+
       if (indexes.indexOf("headwords") < 0) {
         console.log("Creating `headwords` index on dictionary table.");
-        return r.db(config.dbName)
-            .table(config.headwordsTable)
-            .indexCreate("headwords", {multi : true})
-            .run(connection);
+        promises.push(r.db(config.dbName)
+                          .table(config.headwordsTable)
+                          .indexCreate("headwords", {multi : true})
+                          .run(connection));
+      } else {
+        console.log(
+            "Secondary index `headwords` already exists in dict table.");
       }
-      console.log("Secondary index `headwords` already exists in dict table.");
-      return [];
+
+      return Promise.all(promises);
     })
     // Index for dictonary table
     .then(function() {

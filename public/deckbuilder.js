@@ -128,10 +128,7 @@ Kefir.combine([ dictResponseStream.merge(coreClickStream.map(() => null)) ],
                 .enter()
                 .append('li')
                 .classed('dict-entry', true)
-                .text(entry => entry.headwords.join('・') +
-                               (entry.type === 'kanji'
-                                    ? ('；' + entry.readings.join('・'))
-                                    : ''));
+                .text(entry => entry.kanji.concat(entry.readings).join('・'));
         headwordList.append('ol')
             .attr('start', 0)
             .classed('senses-list', true)
@@ -166,7 +163,8 @@ var entryClickStream =
           clickEvent.target.className += ' clicked';
 
           return {
-            headwords : senseObj.entry.headwords, // FIXME FIXME!
+            entrySeq: senseObj.entry.source.entrySeq,
+            headwords : senseObj.entry.headwords,
             senseNum : senseObj.senseNum + 1,
             entry : senseObj.entry,
             page : 1
@@ -195,7 +193,7 @@ var moreEntriesStream = entryClickStream.sampledBy(moreSentencesClickStream)
 var sentenceResponseStream =
     entryClickStream.merge(moreEntriesStream)
         .flatMap(({headwords, senseNum, page, entry}) => {
-          var readingsQuery = entry.type === 'reading'
+          var readingsQuery = entry.kanji.length === 0
                                   ? ''
                                   : `&readings=${entry.readings.join(',')}`;
           return Kefir.fromPromise(jsonPromisified(
@@ -246,23 +244,26 @@ var exampleSentenceAddClickStream =
         .map(ev => ev.target.__data__);
 
 var exampleSentenceDeckSubmitStream =
-    Kefir.combine([exampleSentenceAddClickStream],
+    Kefir.combine([ exampleSentenceAddClickStream ],
                   [ entryClickStream, coreClickStream ])
-        .flatMap(([ sentenceObj, {headwords, senseNum}, coreword ]) => {
-          // Server shouldn't send sentence document's ID but be careful. This
-          // is a new sentence, NOT an edit.
-          sentenceObj = _.omit(sentenceObj, 'id');
-          // Add parameters here so the server doesn't have to.
-          sentenceObj.ve = [];
-          sentenceObj.group = {
-            coreNum : coreword.source.num,
-            num : -1, headwords, senseNum
-          };
-          sentenceObj.globalNum = -1;
-          sentenceObj.modifiedTime = new Date();
+        .flatMap(
+            ([ sentenceObj, {headwords, senseNum, entrySeq}, coreword ]) => {
+              // Server shouldn't send sentence document's ID but be careful.
+              // This
+              // is a new sentence, NOT an edit.
+              sentenceObj = _.omit(sentenceObj, 'id');
+              // Add parameters here so the server doesn't have to.
+              sentenceObj.ve = [];
+              sentenceObj.group = {
+                coreNum : coreword.source.num,
+                num : -1, headwords, senseNum, entrySeq
+              };
+              sentenceObj.globalNum = -1;
+              sentenceObj.modifiedTime = new Date();
 
-          return Kefir.fromPromise(postPromisified('/v2/deck', sentenceObj));
-        });
+              return Kefir.fromPromise(
+                  postPromisified('/v2/deck', sentenceObj));
+            });
 
 var deckClickStream =
     Kefir.fromEvents(document.querySelector('#deck'), 'click');
@@ -297,7 +298,7 @@ var deckDoneNewClickStream = deckButtonClickStream.filter(
 var deckNewResponseStream =
     Kefir.combine([ deckDoneNewClickStream ],
                   [ entryClickStream, coreClickStream ])
-        .flatMap(([ ev, {headwords, senseNum}, coreword ]) => {
+        .flatMap(([ ev, {headwords, senseNum, entrySeq}, coreword ]) => {
           var div = d3.select(ev.target.parentNode);
           var button = ev.target.innerHTML;
 
@@ -310,7 +311,7 @@ var deckNewResponseStream =
               modifiedTime : new Date(),
               group : {
                 coreNum : coreword.source.num,
-                num : -1, headwords, senseNum
+                num : -1, headwords, senseNum, entrySeq
               }
             };
             div.remove();
@@ -417,11 +418,10 @@ var deckResponseStream = deckRequestStream.flatMap(
 Kefir.combine([ deckResponseStream, entryAndCoreClickStream ])
     .onValue(([ deck, [ entryObj, corewordObj ] ]) => {
       if (entryObj) {
-        var {headwords, senseNum} = entryObj;
+        var {headwords, senseNum, entrySeq} = entryObj;
         // Sense-matching deck entries come first, then non-matching
-        deck = _.flatten(_.partition(
-            deck, o => o.group.senseNum === senseNum &&
-                       o.group.headwords.join(',') === headwords.join(',')));
+        deck = _.flatten(_.partition(deck, o => o.group.senseNum === senseNum &&
+                                                o.group.entrySeq === entrySeq));
       }
       d3.select('#deck ol').html('');
       var sentences = d3.select('#deck ol')
@@ -433,8 +433,7 @@ Kefir.combine([ deckResponseStream, entryAndCoreClickStream ])
                           .classed('off-sense',
                                    headwords
                                        ? o => !(o.group.senseNum === senseNum &&
-                                                o.group.headwords.join(',') ===
-                                                    headwords.join(','))
+                                                o.group.entrySeq === entrySeq)
                                        : false)
                           .html(deckObj => {
                             var furigana =

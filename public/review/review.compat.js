@@ -85,7 +85,7 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
 
     deck2.forEach(function (kvCore) {
         kvCore.val = groupByKeyVal(kvCore.val, function (obj) {
-            return obj.group.headwords.join(',');
+            return obj.group.entrySeq || obj.group.headwords.join(',');
         });
         kvCore.val.forEach(function (kvHead) {
             kvHead.val = _.sortBy(groupByKeyVal(kvHead.val, function (obj) {
@@ -113,7 +113,11 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     }, function (d) {
         return 'headwords-' + d.key;
     }).enter().append('div').classed('headword', true).append('h3').text(function (headwordKV) {
-        return headwordKV.key.split(',').join('・');
+        return headwordKV.val[0].val[0].dictionaryData.filter(function (o) {
+            return o.source.entrySeq === +headwordKV.key;
+        }).map(function (o) {
+            return o.kanji.join('・') + '・' + o.readings.join('・');
+        })[0] || headwordKV.key.split(',').join('・') + '?';
     });
     headwords = corewords.selectAll('div.headword');
 
@@ -199,7 +203,7 @@ sentenceEditClickStream.onValue(function (selection) {
         return ve.reading;
     });
 
-    var dictionaryList = deckObjectToHeadwordSenseList(deckObj);
+    var dictionaryList = deckObjToHeadwordSenseList(deckObj);
     editBox.append('select').selectAll('option').data(dictionaryList).enter().append('option').text(function (d) {
         return d;
     });
@@ -211,17 +215,21 @@ sentenceEditClickStream.onValue(function (selection) {
 
     return selection;
 });
-function deckObjectToHeadwordSenseList(deckObj) {
+function deckObjToHeadwordSenseList(deckObj) {
     return _.flatten(deckObj.dictionaryData.map(function (o, oi) {
         return o.senses.map(function (s, i) {
-            return 'Headword ' + (oi + 1) + '. ' + o.headwords.concat(o.type === 'kanji' ? o.readings : []).join('・') + ' (sense ' + (i + 1) + ') ' + s;
+            return 'Entry ' + (oi + 1) + '. ' + o.kanji.join('・') + '：' + o.readings.join('・') + ' (sense ' + (i + 1) + ') ' + s;
         });
     }));
 }
-function deckObjToHeadwordSense(deckObj, idx) {
+function deckObjToDictionaryData(deckObj, idx) {
     var listOfOptions = _.flatten(deckObj.dictionaryData.map(function (o, i) {
         return _.range(o.senses.length).map(function (x) {
-            return { headwords: o.headwords, senseNum: x + 1 };
+            return {
+                headwords: o.headwords,
+                senseNum: x + 1,
+                entrySeq: o.source.entrySeq
+            };
         });
     }));
     return listOfOptions[idx];
@@ -241,9 +249,9 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
     if (button === 'Submit') {
         var parentTag = d3.select(parentNode); // FIXME SUPER-FRAGILE!
 
-        var headwordsSenseNum = deckObjToHeadwordSense(deckObj, parentTag.select('select').property('selectedIndex'));
+        var dictData = deckObjToDictionaryData(deckObj, parentTag.select('select').property('selectedIndex'));
 
-        deckObj.group = _.merge(deckObj.group, headwordsSenseNum, function (dest, src) {
+        deckObj.group = _.merge(deckObj.group, dictData, function (dest, src) {
             return src;
         });
 

@@ -99,5 +99,10 @@ module.exports = {
     return v.map(function(o) {
       return _.merge(o, {modifiedTime : new Date()});
     });
+  },
+
+  nonUnique : function(v) {
+    return _.pairs(_.groupBy(v)).filter(function(v) { return v[1].length > 1 });
   }
 };
+

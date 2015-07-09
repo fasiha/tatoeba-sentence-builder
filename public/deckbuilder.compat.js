@@ -132,7 +132,7 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
         clearSentences();
     } else {
         var headwordList = d3.select('#dictionary').append('ol').classed('headwords-list', true).selectAll('li.dict-entry').data(entries).enter().append('li').classed('dict-entry', true).text(function (entry) {
-            return entry.headwords.join('・') + (entry.type === 'kanji' ? '；' + entry.readings.join('・') : '');
+            return entry.kanji.concat(entry.readings).join('・');
         });
         headwordList.append('ol').attr('start', 0).classed('senses-list', true).selectAll('li.sense-entry').data(function (entry) {
             return ['(unspecified sense)'].concat(entry.senses).map(function (sense, i) {
@@ -160,7 +160,8 @@ var entryClickStream = Kefir.fromEvents(document.querySelector('#dictionary'), '
     clickEvent.target.className += ' clicked';
 
     return {
-        headwords: senseObj.entry.headwords, // FIXME FIXME!
+        entrySeq: senseObj.entry.source.entrySeq,
+        headwords: senseObj.entry.headwords,
         senseNum: senseObj.senseNum + 1,
         entry: senseObj.entry,
         page: 1
@@ -189,7 +190,7 @@ var sentenceResponseStream = entryClickStream.merge(moreEntriesStream).flatMap(f
     var page = _ref4.page;
     var entry = _ref4.entry;
 
-    var readingsQuery = entry.type === 'reading' ? '' : '&readings=' + entry.readings.join(',');
+    var readingsQuery = entry.kanji.length === 0 ? '' : '&readings=' + entry.readings.join(',');
     return Kefir.fromPromise(jsonPromisified('/v2/sentences/' + headwords[0] + '/' + senseNum + '/?page=' + page + readingsQuery));
 });
 
@@ -243,16 +244,18 @@ var exampleSentenceDeckSubmitStream = Kefir.combine([exampleSentenceAddClickStre
     var _ref62$1 = _ref62[1];
     var headwords = _ref62$1.headwords;
     var senseNum = _ref62$1.senseNum;
+    var entrySeq = _ref62$1.entrySeq;
     var coreword = _ref62[2];
 
-    // Server shouldn't send sentence document's ID but be careful. This
+    // Server shouldn't send sentence document's ID but be careful.
+    // This
     // is a new sentence, NOT an edit.
     sentenceObj = _.omit(sentenceObj, 'id');
     // Add parameters here so the server doesn't have to.
     sentenceObj.ve = [];
     sentenceObj.group = {
         coreNum: coreword.source.num,
-        num: -1, headwords: headwords, senseNum: senseNum
+        num: -1, headwords: headwords, senseNum: senseNum, entrySeq: entrySeq
     };
     sentenceObj.globalNum = -1;
     sentenceObj.modifiedTime = new Date();
@@ -288,6 +291,7 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
     var _ref72$1 = _ref72[1];
     var headwords = _ref72$1.headwords;
     var senseNum = _ref72$1.senseNum;
+    var entrySeq = _ref72$1.entrySeq;
     var coreword = _ref72[2];
 
     var div = d3.select(ev.target.parentNode);
@@ -302,7 +306,7 @@ var deckNewResponseStream = Kefir.combine([deckDoneNewClickStream], [entryClickS
             modifiedTime: new Date(),
             group: {
                 coreNum: coreword.source.num,
-                num: -1, headwords: headwords, senseNum: senseNum
+                num: -1, headwords: headwords, senseNum: senseNum, entrySeq: entrySeq
             }
         };
         div.remove();
@@ -405,15 +409,16 @@ Kefir.combine([deckResponseStream, entryAndCoreClickStream]).onValue(function (_
     if (entryObj) {
         var headwords = entryObj.headwords;
         var senseNum = entryObj.senseNum;
+        var entrySeq = entryObj.entrySeq;
 
         // Sense-matching deck entries come first, then non-matching
         deck = _.flatten(_.partition(deck, function (o) {
-            return o.group.senseNum === senseNum && o.group.headwords.join(',') === headwords.join(',');
+            return o.group.senseNum === senseNum && o.group.entrySeq === entrySeq;
         }));
     }
     d3.select('#deck ol').html('');
     var sentences = d3.select('#deck ol').selectAll('li.deck-sentence').data(deck).enter().append('li').classed('deck-sentence', true).classed('off-sense', headwords ? function (o) {
-        return !(o.group.senseNum === senseNum && o.group.headwords.join(',') === headwords.join(','));
+        return !(o.group.senseNum === senseNum && o.group.entrySeq === entrySeq);
     } : false).html(function (deckObj) {
         var furigana = furiganaUtils.veArrayToFuriganaMarkup(deckObj.ve);
         return furigana + ' ' + deckObj.english + '\n                              (s' + deckObj.group.senseNum + ') ';
