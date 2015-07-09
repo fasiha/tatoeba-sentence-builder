@@ -322,9 +322,16 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
     var dbResponse = response[0];
     var deckObj = response[1];
 
-    // Delete the data from the parent sense
-    var parentData = d3.select('#id_' + deckObj.id).node().parentNode;
-    parentData.__data__ = [parentData.__data__[0], parentData.__data__[1].filter(function (o) {
+    // Delete the data from the parent sense and
+    // grand-parent entry, otherwise it'll get regenerated
+    // too many times >.<
+    var parentNode = d3.select('#id_' + deckObj.id).node().parentNode;
+    parentNode.__data__ = [parentNode.__data__[0], parentNode.__data__[1].filter(function (o) {
+        return o.id !== deckObj.id;
+    })];
+
+    parentNode = parentNode.parentNode;
+    parentNode.__data__ = [parentNode.__data__[0], parentNode.__data__[1].filter(function (o) {
         return o.id !== deckObj.id;
     })];
 
@@ -332,7 +339,7 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
     d3.selectAll('#id_' + deckObj.id).remove();
 
     return Kefir.constant([deckObj]);
-}).filter();
+}).filter().log();
 
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.
