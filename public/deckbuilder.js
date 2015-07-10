@@ -136,7 +136,7 @@ Kefir.combine([ dictResponseStream.merge(coreClickStream.map(() => null)) ],
             .data(entry => [
               '(unspecified sense)'
             ].concat(entry.senses)
-                               .map((sense, i) => {
+                               .map((sense, i, senses) => {
                                  return {sense, entry, senseNum : i - 1};
                                }))
             .enter()
@@ -165,7 +165,7 @@ var entryClickStream =
           clickEvent.target.className += ' clicked';
 
           return {
-            entrySeq: senseObj.entry.source.entrySeq,
+            entrySeq : senseObj.entry.source.entrySeq,
             headwords : senseObj.entry.headwords,
             senseNum : senseObj.senseNum + 1,
             entry : senseObj.entry,
@@ -255,16 +255,22 @@ var exampleSentenceDeckSubmitStream =
     Kefir.combine([ exampleSentenceAddClickStream ],
                   [ entryClickStream, coreClickStream ])
         .flatMap(
-            ([ sentenceObj, {headwords, senseNum, entrySeq}, coreword ]) => {
+            ([
+              sentenceObj,
+              {headwords, senseNum, entrySeq, entry},
+              coreword
+            ]) => {
               // Server shouldn't send sentence document's ID but be careful.
-              // This
-              // is a new sentence, NOT an edit.
+              // This is a new sentence, NOT an edit.
               sentenceObj = _.omit(sentenceObj, 'id');
               // Add parameters here so the server doesn't have to.
               sentenceObj.ve = [];
               sentenceObj.group = {
                 coreNum : coreword.source.num,
-                num : -1, headwords, senseNum, entrySeq
+                num : -1, headwords,
+                senseNum :
+                    senseNum === 0 && entry.senses.length === 1 ? 1 : senseNum,
+                entrySeq
               };
               sentenceObj.globalNum = -1;
               sentenceObj.modifiedTime = new Date();

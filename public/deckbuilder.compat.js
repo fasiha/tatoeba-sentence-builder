@@ -135,7 +135,7 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
             return entry.kanji.concat(entry.readings).join('・');
         });
         headwordList.append('ol').attr('start', 0).classed('senses-list', true).selectAll('li.sense-entry').data(function (entry) {
-            return ['(unspecified sense)'].concat(entry.senses).map(function (sense, i) {
+            return ['(unspecified sense)'].concat(entry.senses).map(function (sense, i, senses) {
                 return { sense: sense, entry: entry, senseNum: i - 1 };
             });
         }).enter().append('li').classed('sense-entry', true).text(function (senseObj) {
@@ -253,17 +253,19 @@ var exampleSentenceDeckSubmitStream = Kefir.combine([exampleSentenceAddClickStre
     var headwords = _ref62$1.headwords;
     var senseNum = _ref62$1.senseNum;
     var entrySeq = _ref62$1.entrySeq;
+    var entry = _ref62$1.entry;
     var coreword = _ref62[2];
 
     // Server shouldn't send sentence document's ID but be careful.
-    // This
-    // is a new sentence, NOT an edit.
+    // This is a new sentence, NOT an edit.
     sentenceObj = _.omit(sentenceObj, 'id');
     // Add parameters here so the server doesn't have to.
     sentenceObj.ve = [];
     sentenceObj.group = {
         coreNum: coreword.source.num,
-        num: -1, headwords: headwords, senseNum: senseNum, entrySeq: entrySeq
+        num: -1, headwords: headwords,
+        senseNum: senseNum === 0 && entry.senses.length === 1 ? 1 : senseNum,
+        entrySeq: entrySeq
     };
     sentenceObj.globalNum = -1;
     sentenceObj.modifiedTime = new Date();
