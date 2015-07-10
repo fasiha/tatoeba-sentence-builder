@@ -230,6 +230,7 @@ router.put('/v2/deck/:id', function(req, res) {
     return;
   }
   var japaneseChanged = (req.query.japaneseChanged || 'true') === 'true';
+  var returnChanges = (req.query.returnChanges || '') === 'true';
   Promise.all([
            connectionPromise,
            obj.japanese && japaneseChanged ? ve(obj.japanese) : null
@@ -244,7 +245,8 @@ router.put('/v2/deck/:id', function(req, res) {
 
         return r.table(config.deckTable)
             .get(obj.id)
-            .update(_.omit(obj, 'corewordData,dictionaryData'.split(',')))
+            .update(_.omit(obj, 'corewordData,dictionaryData'.split(',')),
+                    {returnChanges : returnChanges})
             .run(connection, {durability : 'soft'});
       })
       .then(function(results) {

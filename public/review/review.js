@@ -139,7 +139,7 @@ var deckResponseStreamFunction =
                       .html(deckObj => {
                         var furigana =
                             furiganaUtils.veArrayToFuriganaMarkup(deckObj.ve);
-                        return `${furigana} (${deckObj.english})`;
+                        return `${furigana} ${deckObj.english}`;
                       });
       sentences.append('button').classed('edit-deck', true).text('?');
 
@@ -270,7 +270,7 @@ var editResponseStream =
 
             return Kefir.fromPromise(Promise.all([
               putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' +
-                                 japaneseChanged,
+                                 japaneseChanged + '&returnChanges=true',
                              deckObj),
               deckObj
             ]));
@@ -298,6 +298,11 @@ var cleanResponseStream =
                         }
                         var dbResponse = response[0];
                         var deckObj = response[1];
+
+                        var newVe = _.get(dbResponse, 'changes[0].new_val.ve');
+                        if (newVe) {
+                          deckObj.ve = newVe;
+                        }
 
                         // Delete the data from the parent sense and
                         // grand-parent entry, otherwise it'll get regenerated

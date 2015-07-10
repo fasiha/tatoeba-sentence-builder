@@ -167,7 +167,7 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
         return 'id_' + deckObj.id;
     }).html(function (deckObj) {
         var furigana = furiganaUtils.veArrayToFuriganaMarkup(deckObj.ve);
-        return furigana + ' (' + deckObj.english + ')';
+        return furigana + ' ' + deckObj.english;
     });
     sentences.append('button').classed('edit-deck', true).text('?');
 
@@ -285,7 +285,7 @@ var editResponseStream = edititedStream.flatMap(function (selection) {
         });
         //console.log('writing id', deckObj.id, deckObj);
 
-        return Kefir.fromPromise(Promise.all([putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged, deckObj), deckObj]));
+        return Kefir.fromPromise(Promise.all([putPromisified('/v2/deck/' + deckObj.id + '?japaneseChanged=' + japaneseChanged + '&returnChanges=true', deckObj), deckObj]));
     } else if (button === 'Cancel') {
         d3.select(parentNode.parentNode).select('button.edit-deck').classed('no-display', false);
         parentNode.remove();
@@ -306,6 +306,11 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
     }
     var dbResponse = response[0];
     var deckObj = response[1];
+
+    var newVe = _.get(dbResponse, 'changes[0].new_val.ve');
+    if (newVe) {
+        deckObj.ve = newVe;
+    }
 
     // Delete the data from the parent sense and
     // grand-parent entry, otherwise it'll get regenerated
