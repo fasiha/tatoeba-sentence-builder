@@ -152,10 +152,6 @@ router.get('/v2/deck', function(req, res) {
                                             r.args(o('corewordData')('words')),
                                             {index : 'headwords'})
                                         .distinct())))
-                           /*
-                           .group(r.row('group')('coreNum'),
-                                  r.row('group')('senseNum'))
-                           */
                            .coerceTo('array')
                            .run(connection);
                      }

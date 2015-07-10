@@ -142,6 +142,8 @@ Kefir.combine([dictResponseStream.merge(coreClickStream.map(function () {
             return senseObj.sense.replace(/；/g, '； ');
         });
     }
+    // If we're looking at pre-sentences, allow new "sentences" to be added
+    // without a sense number
     if (coreword.source.num === -1) {
         d3.select('button#new-sentence').classed('no-display', false);
     }
@@ -206,9 +208,15 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
 
     if (sentences === null) {
         clearSentences();
-    } else if (sentences.length === 0) {
-        d3.select('#sentences ol').append('li').text('No sentences found for headword “' + headwords[0] + '”, sense #' + senseNum);
+        return;
+    }
+
+    if (senseNum > 0) {
         d3.select('button#new-sentence').classed('no-display', false);
+    }
+
+    if (sentences.length === 0) {
+        d3.select('#sentences ol').append('li').text('No sentences found for headword “' + headwords[0] + '”, sense #' + senseNum);
     } else {
         var sentences = d3.select('#sentences ol').selectAll('li.sentence').data(sentences, function (obj) {
             return obj.japanese;
@@ -217,7 +225,6 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
         });
 
         d3.select('#more-sentences').classed('no-display', false);
-        d3.select('button#new-sentence').classed('no-display', false);
 
         sentences.append('button').classed('add-to-deck', true).text('✓');
         sentences.append('ul').selectAll('li').data(function (obj) {
@@ -226,6 +233,7 @@ Kefir.combine([sentenceResponseStream.merge(entryClickStream.map(function () {
             return tag.headword + '/' + tag.reading;
         });
     }
+    return;
 });
 
 //////////////////////////////////////////

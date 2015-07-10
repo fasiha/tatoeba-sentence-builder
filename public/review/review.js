@@ -151,27 +151,6 @@ var deckResponseStreamFunction =
           .selectAll('div.sense')
           .selectAll('p.deck-sentence')
           .sort((a, b) => objToNum(a) - objToNum(b));
-      /*
-      var sentences =
-          d3.select('#content ol')
-              .selectAll('li.deck-sentence')
-              .data(deck, deckObj => deckObj.id)
-              .enter()
-              .append('li')
-              .classed('deck-sentence', true)
-              .classed('just-edited', deck.length > 1 ? false : true)
-              .attr('id', deckObj => 'id_' + deckObj.id)
-              .html(deckObj => {
-                var furigana = veArrayToFuriganaMarkup(deckObj.ve);
-                return `${furigana} (${deckObj.english})`;
-              });
-      sentences.append('button').classed('edit-deck', true).text('?');
-
-      var objToNum = o => o.group.coreNum + o.group.num / 1e3;
-      d3.select('#content ol')
-          .selectAll('li.deck-sentence')
-          .sort((a, b) => objToNum(a) - objToNum(b));
-          */
     }
 
 // FRP the buttons
@@ -210,13 +189,28 @@ sentenceEditClickStream.onValue(selection => {
       .attr({type : 'text'})
       .attr('value', ve => ve.reading);
 
-  var dictionaryList = deckObjToHeadwordSenseList(deckObj);
+  var dictionaryList = _.flatten(
+      _.sortBy(deckObj.dictionaryData,
+               dict => -_.intersection(dict.headwords, deckObj.group.headwords)
+                            .length)
+          .map((entryObj, entryIdx) => entryObj.senses.map(
+                   (sense, senseIdx) =>
+                       (deckObj.group.senseNum === 0
+                            ? ''
+                            : ((senseIdx + 1) === deckObj.group.senseNum
+                                   ? ''
+                                   : '？')) +
+                       `Entry ${entryIdx+1}. ${entryObj.kanji.join('・')}：` +
+                       `${entryObj.readings.join('・')}` +
+                       ` (sense ${senseIdx+1}) ${sense}`)));
+  var defaultIdx = _.findIndex(dictionaryList, s => s[0] !== '？');
   editBox.append('select')
       .selectAll('option')
       .data(dictionaryList)
       .enter()
       .append('option')
       .text(d => d)
+      .attr('selected', (d, i) => i === defaultIdx ? 'selected' : null);
   editBox.append('br');
 
   editBox.append('button').text('Submit').classed('done-editing', true);
@@ -225,12 +219,7 @@ sentenceEditClickStream.onValue(selection => {
 
   return selection;
 });
-function deckObjToHeadwordSenseList(deckObj) {
-  return _.flatten(deckObj.dictionaryData.map(
-      (o, oi) => o.senses.map(
-          (s, i) =>
-              `Entry ${oi+1}. ${o.kanji.join('・')}：${o.readings.join('・')} (sense ${i+1}) ${s}`)));
-}
+
 function deckObjToDictionaryData(deckObj, idx){
   var listOfOptions = _.flatten(
       deckObj.dictionaryData.map((o, i) => _.range(o.senses.length)
@@ -334,7 +323,7 @@ var cleanResponseStream =
                         
                         return Kefir.constant([ deckObj ]);
                       })
-        .filter().log();
+        .filter();
 
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.

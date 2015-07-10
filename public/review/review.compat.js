@@ -178,26 +178,6 @@ var deckResponseStreamFunction = function deckResponseStreamFunction(deck) {
     d3.select('#content').selectAll('div.coreword').selectAll('div.headword').selectAll('div.sense').selectAll('p.deck-sentence').sort(function (a, b) {
         return objToNum(a) - objToNum(b);
     });
-    /*
-    var sentences =
-        d3.select('#content ol')
-            .selectAll('li.deck-sentence')
-            .data(deck, deckObj => deckObj.id)
-            .enter()
-            .append('li')
-            .classed('deck-sentence', true)
-            .classed('just-edited', deck.length > 1 ? false : true)
-            .attr('id', deckObj => 'id_' + deckObj.id)
-            .html(deckObj => {
-              var furigana = veArrayToFuriganaMarkup(deckObj.ve);
-              return `${furigana} (${deckObj.english})`;
-            });
-    sentences.append('button').classed('edit-deck', true).text('?');
-     var objToNum = o => o.group.coreNum + o.group.num / 1e3;
-    d3.select('#content ol')
-        .selectAll('li.deck-sentence')
-        .sort((a, b) => objToNum(a) - objToNum(b));
-        */
 };
 
 // FRP the buttons
@@ -231,9 +211,20 @@ sentenceEditClickStream.onValue(function (selection) {
         return ve.reading;
     });
 
-    var dictionaryList = deckObjToHeadwordSenseList(deckObj);
+    var dictionaryList = _.flatten(_.sortBy(deckObj.dictionaryData, function (dict) {
+        return -_.intersection(dict.headwords, deckObj.group.headwords).length;
+    }).map(function (entryObj, entryIdx) {
+        return entryObj.senses.map(function (sense, senseIdx) {
+            return (deckObj.group.senseNum === 0 ? '' : senseIdx + 1 === deckObj.group.senseNum ? '' : '？') + ('Entry ' + (entryIdx + 1) + '. ' + entryObj.kanji.join('・') + '：') + ('' + entryObj.readings.join('・')) + (' (sense ' + (senseIdx + 1) + ') ' + sense);
+        });
+    }));
+    var defaultIdx = _.findIndex(dictionaryList, function (s) {
+        return s[0] !== '？';
+    });
     editBox.append('select').selectAll('option').data(dictionaryList).enter().append('option').text(function (d) {
         return d;
+    }).attr('selected', function (d, i) {
+        return i === defaultIdx ? 'selected' : null;
     });
     editBox.append('br');
 
@@ -243,13 +234,7 @@ sentenceEditClickStream.onValue(function (selection) {
 
     return selection;
 });
-function deckObjToHeadwordSenseList(deckObj) {
-    return _.flatten(deckObj.dictionaryData.map(function (o, oi) {
-        return o.senses.map(function (s, i) {
-            return 'Entry ' + (oi + 1) + '. ' + o.kanji.join('・') + '：' + o.readings.join('・') + ' (sense ' + (i + 1) + ') ' + s;
-        });
-    }));
-}
+
 function deckObjToDictionaryData(deckObj, idx) {
     var listOfOptions = _.flatten(deckObj.dictionaryData.map(function (o, i) {
         return _.range(o.senses.length).map(function (x) {
@@ -339,7 +324,7 @@ var cleanResponseStream = editResponseStream.flatMap(function (response) {
     d3.selectAll('#id_' + deckObj.id).remove();
 
     return Kefir.constant([deckObj]);
-}).filter().log();
+}).filter();
 
 // Here finally is the stream that reacts to both the JSON deck dump and the
 // individual dumps due to edits.
