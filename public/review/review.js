@@ -190,9 +190,11 @@ sentenceEditClickStream.onValue(selection => {
       .attr('value', ve => ve.reading);
 
   var dictionaryList = _.flatten(
-      _.sortBy(deckObj.dictionaryData,
-               dict => -_.intersection(dict.headwords, deckObj.group.headwords)
-                            .length)
+      (true ? deckObj.dictionaryData
+            : _.sortBy(deckObj.dictionaryData,
+                       dict => -_.intersection(dict.headwords,
+                                               deckObj.group.headwords)
+                                    .length))
           .map((entryObj, entryIdx) => entryObj.senses.map(
                    (sense, senseIdx) =>
                        (deckObj.group.senseNum === 0

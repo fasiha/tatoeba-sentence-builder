@@ -211,9 +211,9 @@ sentenceEditClickStream.onValue(function (selection) {
         return ve.reading;
     });
 
-    var dictionaryList = _.flatten(_.sortBy(deckObj.dictionaryData, function (dict) {
+    var dictionaryList = _.flatten((true ? deckObj.dictionaryData : _.sortBy(deckObj.dictionaryData, function (dict) {
         return -_.intersection(dict.headwords, deckObj.group.headwords).length;
-    }).map(function (entryObj, entryIdx) {
+    })).map(function (entryObj, entryIdx) {
         return entryObj.senses.map(function (sense, senseIdx) {
             return (deckObj.group.senseNum === 0 ? '' : senseIdx + 1 === deckObj.group.senseNum ? '' : '？') + ('Entry ' + (entryIdx + 1) + '. ' + entryObj.kanji.join('・') + '：') + ('' + entryObj.readings.join('・')) + (' (sense ' + (senseIdx + 1) + ') ' + sense);
         });
